@@ -13,14 +13,25 @@ namespace argon {
         std::string gjp2;
     };
 
-    class AuthVerdict {};
+    enum class AuthProgress {
+        RequestedChallenge,
+        SolvingChallenge,
+        VerifyingChallenge,
 
-    using AuthCallback = std::function<void(geode::Result<AuthVerdict>)>;
+        RetryingRequest,
+        RetryingSolve,
+        RetryingVerify,
+    };
+
+    std::string authProgressToString(AuthProgress progress);
+
+    using AuthCallback = std::function<void(geode::Result<std::string>)>;
+    using AuthProgressCallback = std::function<void(AuthProgress)>;
 
     AccountData getGameAccountData();
 
-    geode::Result<> startAuth(AuthCallback callback);
-    geode::Result<> startAuthWithAccount(AuthCallback callback, AccountData account);
+    geode::Result<> startAuth(AuthCallback callback, AuthProgressCallback progress = {});
+    geode::Result<> startAuthWithAccount(AccountData account, AuthCallback callback, AuthProgressCallback progress = {});
 
     geode::Result<> setServerUrl(std::string url);
 

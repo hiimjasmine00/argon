@@ -7,6 +7,24 @@ using namespace geode::prelude;
 
 namespace argon {
 
+std::string authProgressToString(AuthProgress progress) {
+	switch (progress) {
+		case AuthProgress::RequestedChallenge:
+			return "Requested challenge";
+		case AuthProgress::SolvingChallenge:
+			return "Solving challenge";
+		case AuthProgress::VerifyingChallenge:
+			return "Verifying solution";
+		case AuthProgress::RetryingRequest:
+			return "Requested challenge (retry)";
+		case AuthProgress::RetryingSolve:
+			return "Solving challenge (retry)";
+		case AuthProgress::RetryingVerify:
+			return "Verifying solution (retry)";
+		default:
+			return "Unknown";
+	}
+}
 
 AccountData getGameAccountData() {
 	int accountId = GJAccountManager::get()->m_accountID;
@@ -22,20 +40,20 @@ AccountData getGameAccountData() {
 	};
 }
 
-Result<> startAuth(AuthCallback callback) {
+Result<> startAuth(AuthCallback callback, AuthProgressCallback progress) {
 	auto data = getGameAccountData();
 	if (data.accountId <= 0 || data.userId <= 0) {
 		return Err("Not logged into a Geometry Dash account");
 	}
 
-	return startAuthWithAccount(std::move(callback), std::move(data));
+	return startAuthWithAccount(std::move(data), std::move(callback), std::move(progress));
 }
 
-Result<> startAuthWithAccount(AuthCallback callback, AccountData account) {
+Result<> startAuthWithAccount(AccountData account, AuthCallback callback, AuthProgressCallback progress) {
 	GEODE_UNWRAP_INTO(auto task, startAuthInternal(std::move(account), "message"));
 
 	auto& argon = ArgonState::get();
-	argon.pushNewRequest(std::move(callback), std::move(account), std::move(task));
+	argon.pushNewRequest(std::move(callback), std::move(progress), std::move(account), std::move(task));
 
 	return Ok();
 }
@@ -55,9 +73,7 @@ Result<> setServerUrl(std::string url) {
 		return Err("Invalid server URL");
 	}
 
-	ArgonState::get().setServerUrl(std::move(url));
-
-	return Ok();
+	return ArgonState::get().setServerUrl(std::move(url));
 }
 
 }

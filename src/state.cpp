@@ -1,6 +1,6 @@
 #include "state.hpp"
 
-#include "stage2.hpp"
+#include "stages.hpp"
 
 #include <matjson/reflect.hpp>
 
@@ -8,37 +8,65 @@ using namespace geode::prelude;
 
 namespace argon {
 
+Task<void> sleepFor(auto duration) {
+    return Task<void>::run([duration](auto, auto) {
+        std::this_thread::sleep_for(duration);
+        return true;
+    });
+}
+
 struct Stage1ResponseData {
     std::string method;
     int id;
     int challenge;
 };
 
+struct Stage3ResponseData {
+    bool success;
+    std::string authtoken; // if successful, this is the authtoken
+    int pollAfter; // if unsuccessful, this says how many ms to wait until polling again
+};
+
 ArgonState::ArgonState() {
-    this->setServerUrl("https://argon.dankmeme.dev");
+    (void) this->setServerUrl("https://argon.dankmeme.dev").unwrap();
 }
 
-void ArgonState::setServerUrl(std::string url) {
+Result<> ArgonState::setServerUrl(std::string url) {
+    if (pendingRequests.size()) {
+        return Err("Cannot change server URL while there are pending requests");
+    }
+
     serverUrl = std::move(url);
 
     // Strip trailing slash
     if (!serverUrl.empty() && serverUrl.back() == '/') {
         serverUrl.pop_back();
     }
+
+    return Ok();
 }
 
 std::string_view ArgonState::getServerUrl() const {
     return serverUrl;
 }
 
-void ArgonState::pushNewRequest(AuthCallback callback, AccountData account, web::WebTask req) {
+void ArgonState::progress(PendingRequest* req, AuthProgress progress) {
+    if (req->progressCallback) {
+        req->progressCallback(progress);
+    }
+}
+
+void ArgonState::pushNewRequest(AuthCallback callback, AuthProgressCallback progress, AccountData account, web::WebTask req) {
     size_t id = this->getNextRequestId();
 
     auto preq = new PendingRequest {
         .id = id,
         .callback = std::move(callback),
+        .progressCallback = std::move(progress),
         .account = std::move(account),
     };
+
+    this->progress(preq, AuthProgress::RequestedChallenge);
 
     preq->stage1Listener.bind([preq](web::WebTask::Event* e) {
         auto& argon = ArgonState::get();
@@ -48,7 +76,7 @@ void ArgonState::pushNewRequest(AuthCallback callback, AccountData account, web:
         } else if (web::WebProgress* progress = e->getProgress()) {
             // idk we ignore progress for now
         } else if (e->isCancelled()) {
-            argon.handleStage1Error(preq, "Request cancelled");
+            argon.handleCancellation(preq);
         }
     });
 
@@ -66,11 +94,27 @@ void ArgonState::pushStage2Request(PendingRequest* preq, geode::utils::web::WebT
         } else if (web::WebProgress* progress = e->getProgress()) {
             // idk we ignore progress for now
         } else if (e->isCancelled()) {
-            argon.handleStage2Error(preq, "Request cancelled");
+            argon.handleCancellation(preq);
         }
     });
 
     preq->stage2Listener.setFilter(std::move(req));
+}
+
+void ArgonState::pushStage3Request(PendingRequest* preq, web::WebTask req) {
+    preq->stage3Listener.bind([preq](web::WebTask::Event* e) {
+        auto& argon = ArgonState::get();
+
+        if (web::WebResponse* value = e->getValue()) {
+            argon.processStage3Response(preq, value);
+        } else if (web::WebProgress* progress = e->getProgress()) {
+            // idk we ignore progress for now
+        } else if (e->isCancelled()) {
+            argon.handleCancellation(preq);
+        }
+    });
+
+    preq->stage3Listener.setFilter(std::move(req));
 }
 
 PendingRequest* ArgonState::getRequestById(size_t id) {
@@ -109,18 +153,19 @@ void ArgonState::processStage1Response(PendingRequest* req, web::WebResponse* re
 
     auto datares = obj["data"].as<Stage1ResponseData>();
     if (!datares) {
-        this->handleStage1Error(req, "Malformed server response (no 'data' key)");
+        this->handleStage1Error(req, "Malformed server response ('data' key missing or format is invalid)");
         return;
     }
 
     auto data = std::move(datares).unwrap();
 
     // Start stage 2.
+    this->progress(req, req->retrying ? AuthProgress::RetryingSolve : AuthProgress::SolvingChallenge);
     req->stage2ChosenMethod = data.method;
     argon::stage2Start(req, data.id, data.challenge);
 }
 
-void ArgonState::processStage2Response(PendingRequest* req, geode::utils::web::WebResponse* response) {
+void ArgonState::processStage2Response(PendingRequest* req, web::WebResponse* response) {
     auto res = response->string().unwrapOrDefault();
     if (res.empty()) {
         this->handleStage2Error(req, "Server did not send a response");
@@ -139,11 +184,61 @@ void ArgonState::processStage2Response(PendingRequest* req, geode::utils::web::W
         return;
     }
 
-    // we can assume that sending the message succeeded now, begin stage 3 by asking the server if auth succeeded
+    // we can assume that stage 2 succeeded now, begin stage 3 by asking the server if auth succeeded
+    this->progress(req, req->retrying ? AuthProgress::RetryingVerify : AuthProgress::VerifyingChallenge);
+    req->startedVerificationAt = std::chrono::system_clock::now();
+    argon::stage3Start(req);
+}
 
+void ArgonState::processStage3Response(PendingRequest* req, web::WebResponse* response) {
+    auto res = response->json();
+
+    if (!res) {
+        log::warn("(Argon) Stage 3 request failed with code {}, server did not send a JSON, dumping server response.", response->code());
+        log::warn("{}", response->string().unwrapOrDefault());
+        this->handleStage3Error(req, fmt::format("Unknown server error ({})", response->code()));
+        return;
+    }
+
+    auto obj = std::move(res).unwrap();
+
+    // note: this is stage 3, success here does not mean we authenticated successfully,
+    // but rather that the server verified our solution is correct and is now waiting to verify it with the GD server
+    bool success = obj["success"].asBool().unwrapOr(false);
+
+    if (!success) {
+        std::string error = obj["error"].asString().unwrapOr("Malformed server response (no error message)");
+        this->handleStage3Error(req, std::move(error));
+        return;
+    }
+
+    auto datares = obj["data"].as<Stage3ResponseData>();
+    if (!datares) {
+        this->handleStage3Error(req, "Malformed server response ('data' key missing or format is invalid)");
+        return;
+    }
+
+    auto data = std::move(datares).unwrap();
+
+    if (data.success) {
+        this->handleSuccessfulAuth(req, std::move(data.authtoken));
+        return;
+    }
+
+    // if we did not succeed, we shall poll again after some time
+    this->waitAndRetryStage3(req, data.pollAfter);
 }
 
 void ArgonState::restartStage1(PendingRequest* preq) {
+    if (preq->stage2ChosenMethod == "message") {
+        preq->stage2ChosenMethod = "comment";
+    } else if (preq->stage2ChosenMethod == "comment") {
+        preq->stage2ChosenMethod = "message";
+    }
+
+    this->progress(preq, AuthProgress::RetryingRequest);
+    preq->retrying = true;
+
     auto task = argon::web::restartStage1(preq->account, preq->stage2ChosenMethod);
     preq->stage1Listener.setFilter(std::move(task));
 }
@@ -153,19 +248,61 @@ void ArgonState::handleStage1Error(PendingRequest* req, std::string error) {
     this->cleanupRequest(req);
 }
 
+void ArgonState::handleCancellation(PendingRequest* req) {
+    req->callback(Err("Request was cancelled"));
+    this->cleanupRequest(req);
+}
+
+void ArgonState::handleSuccessfulAuth(PendingRequest* req, std::string authtoken) {
+    // TODO: store authtoken here
+    req->callback(Ok(std::move(authtoken)));
+    this->cleanupRequest(req);
+}
+
+void ArgonState::waitAndRetryStage3(PendingRequest* req, int ms) {
+    // if over a minute has passed, we should just give up
+    auto now = std::chrono::system_clock::now();
+    auto diff = now - req->startedVerificationAt;
+    if (diff > std::chrono::minutes(1)) {
+        this->handleStage3Error(req, "Server did not verify the solution in a reasonable amount of time");
+        return;
+    }
+
+    std::chrono::milliseconds duration(ms);
+    if (duration.count() < 0 || duration.count() > 60000) {
+        this->handleStage3Error(req, "Server sent an invalid pollAfter value");
+        return;
+    }
+
+    auto task = [duration, req]() -> web::WebTask {
+        co_await sleepFor(duration);
+        co_return co_await argon::web::pollStage3(req->account);
+    }();
+
+    req->stage3Listener.setFilter(std::move(task));
+}
+
 void ArgonState::handleStage2Error(PendingRequest* req, std::string error) {
     // If we can, we should try another authentication method, before completely failing.
     if (!req->retrying) {
-        if (req->stage2ChosenMethod == "message") {
-            req->stage2ChosenMethod = "comment";
-        } else if (req->stage2ChosenMethod == "comment") {
-            req->stage2ChosenMethod = "message";
-        }
-
-        log::warn("(Argon) Stage 2 failed, retrying authentication with method \"{}\"", req->stage2ChosenMethod);
+        log::warn("(Argon) Stage 2 failed with method \"{}\", retrying with a different one", req->stage2ChosenMethod);
         log::warn("(Argon) Fail reason: {}", error);
 
-        req->retrying = true;
+        this->restartStage1(req);
+        return;
+    }
+
+    // otherwise, just fail
+    req->callback(Err(std::move(error)));
+    this->cleanupRequest(req);
+}
+
+void ArgonState::handleStage3Error(PendingRequest* req, std::string error) {
+    // retry with a different method if we can
+    if (!req->retrying) {
+        log::warn("(Argon) Stage 3 failed with method \"{}\", retrying with a different one", req->stage2ChosenMethod);
+        log::warn("(Argon) Fail reason: {}", error);
+
         this->restartStage1(req);
         return;
     }

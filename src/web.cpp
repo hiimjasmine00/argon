@@ -1,7 +1,6 @@
 #include "web.hpp"
 
 #include "state.hpp"
-#include "challenge.hpp"
 
 #include <Geode/loader/Loader.hpp>
 #include "external/ServerAPIEvents.hpp"
@@ -131,8 +130,8 @@ WebTask restartStage1(const AccountData& account, std::string_view preferredMeth
     return std::move(req);
 }
 
-WebTask startStage2Message(const AccountData& account, int id, int challenge) {
-    std::string text = fmt::format("#ARGON# {}", solveChallenge(challenge));
+WebTask startStage2Message(const AccountData& account, int id, std::string_view solution) {
+    std::string text = fmt::format("#ARGON# {}", solution);
 
     auto payload = fmt::format(
         "accountID={}&gjp2={}&gameVersion=22&binaryVersion=45"
@@ -151,7 +150,7 @@ WebTask startStage2Message(const AccountData& account, int id, int challenge) {
     return std::move(req);
 }
 
-WebTask startStage2Comment(const AccountData& accData, int id, int challenge) {
+WebTask startStage2Comment(const AccountData& accData, int id, std::string_view solution) {
     return {}; // TODO
 }
 

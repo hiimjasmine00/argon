@@ -15,7 +15,9 @@ namespace argon::web {
 
     WebTask startStage1(const AccountData& accData, std::string_view preferredMethod);
     WebTask restartStage1(const AccountData& accData, std::string_view preferredMethod);
-    WebTask startStage2Message(const AccountData& accData, int id, int challenge);
-    WebTask startStage2Comment(const AccountData& accData, int id, int challenge);
-    WebTask startStage3(const AccountData& accData, int id, int challenge);
+    WebTask startStage2Message(const AccountData& accData, int id, std::string_view solution);
+    WebTask startStage2Comment(const AccountData& accData, int id, std::string_view solution);
+
+    WebTask startStage3(const AccountData& accData, std::string_view solution);
+    WebTask pollStage3(const AccountData& accData);
 }
