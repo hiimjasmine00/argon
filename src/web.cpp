@@ -81,7 +81,7 @@ static const char* platformString() {
 }
 
 std::string getUserAgent() {
-    return fmt::format("argon/{} ({}, Geode {}, GD {})",
+    return fmt::format("argon/v{} ({}, Geode {}, GD {})",
 			ARGON_VERSION,
 			platformString(),
 			Loader::get()->getVersion(),
@@ -150,8 +150,37 @@ WebTask startStage2Message(const AccountData& account, int id, std::string_view 
     return std::move(req);
 }
 
-WebTask startStage2Comment(const AccountData& accData, int id, std::string_view solution) {
+WebTask startStage2Comment(const AccountData& account, int id, std::string_view solution) {
     return {}; // TODO
+}
+
+WebTask startStage3(const AccountData& account, std::string_view solution) {
+	auto& argon = ArgonState::get();
+	std::string_view serverUrl = argon.getServerUrl();
+
+	auto payload = matjson::makeObject({
+        {"solution", solution}
+	});
+
+	auto req = web::WebRequest()
+		.userAgent(getUserAgent())
+		.timeout(std::chrono::seconds(10))
+		.bodyJSON(payload)
+		.post(fmt::format("{}/v1/challenge/verify", serverUrl));
+
+    return std::move(req);
+}
+
+WebTask pollStage3(const AccountData& accData) {
+	auto& argon = ArgonState::get();
+	std::string_view serverUrl = argon.getServerUrl();
+
+	auto req = web::WebRequest()
+		.userAgent(getUserAgent())
+		.timeout(std::chrono::seconds(10))
+		.get(fmt::format("{}/v1/challenge/verifypoll", serverUrl));
+
+    return std::move(req);
 }
 
 }
