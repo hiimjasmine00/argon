@@ -22,7 +22,7 @@ struct Stage1ResponseData {
 };
 
 struct Stage3ResponseData {
-    bool success;
+    bool verified;
     std::string authtoken; // if successful, this is the authtoken
     int pollAfter; // if unsuccessful, this says how many ms to wait until polling again
 };
@@ -220,7 +220,7 @@ void ArgonState::processStage3Response(PendingRequest* req, web::WebResponse* re
 
     auto data = std::move(datares).unwrap();
 
-    if (data.success) {
+    if (data.verified) {
         this->handleSuccessfulAuth(req, std::move(data.authtoken));
         return;
     }
