@@ -136,7 +136,7 @@ WebTask startStage2Message(const AccountData& account, int id, std::string_view 
     auto payload = fmt::format(
         "accountID={}&gjp2={}&gameVersion=22&binaryVersion=45"
         "&secret=Wmfd2893gb7&toAccountID={}&subject={}&body={}",
-        account.accountId, account.gjp2, id, base64Encode(text), base64Encode("This is a verification message, it can be safely deleted.")
+        account.accountId, account.gjp2, id, base64Encode(text), base64Encode("This is a message sent to verify your account, it can be safely deleted.")
     );
 
     // Upload a message to the GD bot account
