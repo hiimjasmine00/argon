@@ -88,7 +88,7 @@ std::string getUserAgent() {
 			Loader::get()->getGameVersion());
 }
 
-WebTask startStage1(const AccountData& account, std::string_view preferredMethod) {
+WebTask startStage1(const AccountData& account, std::string_view preferredMethod, bool forceStrong) {
 	auto& argon = ArgonState::get();
 	std::string_view serverUrl = argon.getServerUrl();
 
@@ -96,6 +96,7 @@ WebTask startStage1(const AccountData& account, std::string_view preferredMethod
 		{"accountId", account.accountId},
 		{"userId", account.userId},
 		{"username", account.username},
+        {"forceStrong", forceStrong},
 		{"reqMod", Mod::get()->getID()},
 		{"preferred", preferredMethod}
 	});
@@ -109,7 +110,7 @@ WebTask startStage1(const AccountData& account, std::string_view preferredMethod
     return std::move(req);
 }
 
-WebTask restartStage1(const AccountData& account, std::string_view preferredMethod) {
+WebTask restartStage1(const AccountData& account, std::string_view preferredMethod, bool forceStrong) {
 	auto& argon = ArgonState::get();
 	std::string_view serverUrl = argon.getServerUrl();
 
@@ -117,6 +118,7 @@ WebTask restartStage1(const AccountData& account, std::string_view preferredMeth
 		{"accountId", account.accountId},
 		{"userId", account.userId},
 		{"username", account.username},
+        {"forceStrong", forceStrong},
 		{"reqMod", Mod::get()->getID()},
 		{"preferred", preferredMethod}
 	});

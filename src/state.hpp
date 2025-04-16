@@ -12,6 +12,7 @@ struct PendingRequest {
     AuthCallback callback;
     AuthProgressCallback progressCallback;
     AccountData account;
+    bool forceStrong;
     std::string serverIdent;
     std::string challengeSolution;
     std::string stage2ChosenMethod;
@@ -29,7 +30,7 @@ public:
     std::lock_guard<std::mutex> lockServerUrl();
 
     void progress(PendingRequest* req, AuthProgress progress);
-    void pushNewRequest(AuthCallback callback, AuthProgressCallback progress, AccountData account, web::WebTask req);
+    void pushNewRequest(AuthCallback callback, AuthProgressCallback progress, AccountData account, web::WebTask req, bool forceStrong);
     void pushStage2Request(PendingRequest* preq, web::WebTask req);
     void pushStage3Request(PendingRequest* preq, web::WebTask req);
     void restartStage1(PendingRequest* preq);

@@ -30,10 +30,10 @@ namespace argon {
 
     AccountData getGameAccountData();
 
-    geode::Result<> startAuth(AuthCallback callback, AuthProgressCallback progress = {});
-    geode::Result<> startAuthWithAccount(AccountData account, AuthCallback callback, AuthProgressCallback progress = {});
+    geode::Result<> startAuth(AuthCallback callback, AuthProgressCallback progress = {}, bool forceStrong = false);
+    geode::Result<> startAuthWithAccount(AccountData account, AuthCallback callback, AuthProgressCallback progress = {}, bool forceStrong = false);
 
     geode::Result<> setServerUrl(std::string url);
 
-    geode::Result<geode::utils::web::WebTask> startAuthInternal(AccountData account, std::string_view preferredMethod);
+    geode::Result<geode::utils::web::WebTask> startAuthInternal(AccountData account, std::string_view preferredMethod, bool forceStrong);
 }

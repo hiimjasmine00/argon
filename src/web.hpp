@@ -13,8 +13,8 @@ namespace argon::web {
 
     std::string getUserAgent();
 
-    WebTask startStage1(const AccountData& accData, std::string_view preferredMethod);
-    WebTask restartStage1(const AccountData& accData, std::string_view preferredMethod);
+    WebTask startStage1(const AccountData& accData, std::string_view preferredMethod, bool forceStrong = false);
+    WebTask restartStage1(const AccountData& accData, std::string_view preferredMethod, bool forceStrong = false);
     WebTask startStage2Message(const AccountData& accData, int id, std::string_view solution);
     WebTask startStage2Comment(const AccountData& accData, int id, std::string_view solution);
 

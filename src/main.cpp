@@ -40,32 +40,40 @@ AccountData getGameAccountData() {
 	};
 }
 
-Result<> startAuth(AuthCallback callback, AuthProgressCallback progress) {
+Result<> startAuth(AuthCallback callback, AuthProgressCallback progress, bool forceStrong) {
 	auto data = getGameAccountData();
 	if (data.accountId <= 0 || data.userId <= 0) {
 		return Err("Not logged into a Geometry Dash account");
 	}
 
-	return startAuthWithAccount(std::move(data), std::move(callback), std::move(progress));
+	return startAuthWithAccount(std::move(data), std::move(callback), std::move(progress), forceStrong);
 }
 
-Result<> startAuthWithAccount(AccountData account, AuthCallback callback, AuthProgressCallback progress) {
-	GEODE_UNWRAP_INTO(auto task, startAuthInternal(std::move(account), "message"));
-
+Result<> startAuthWithAccount(AccountData account, AuthCallback callback, AuthProgressCallback progress, bool forceStrong) {
 	auto& argon = ArgonState::get();
-	argon.pushNewRequest(std::move(callback), std::move(progress), std::move(account), std::move(task));
+	auto _ = argon.lockServerUrl();
+
+	GEODE_UNWRAP_INTO(auto task, startAuthInternal(std::move(account), "message", forceStrong));
+
+	argon.pushNewRequest(
+		std::move(callback),
+		std::move(progress),
+		std::move(account),
+		std::move(task),
+		forceStrong
+	);
 
 	return Ok();
 }
 
-Result<web::WebTask> startAuthInternal(AccountData account, std::string_view preferredMethod) {
+Result<web::WebTask> startAuthInternal(AccountData account, std::string_view preferredMethod, bool forceStrong) {
 	if (account.accountId <= 0 || account.userId <= 0 || account.username.empty()) {
 		return Err("Invalid account data");
 	}
 
 	// Start stage 1 authentication.
 
-	return Ok(argon::web::startStage1(account, preferredMethod));
+	return Ok(argon::web::startStage1(account, preferredMethod, forceStrong));
 }
 
 Result<> setServerUrl(std::string url) {

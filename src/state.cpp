@@ -64,7 +64,7 @@ void ArgonState::progress(PendingRequest* req, AuthProgress progress) {
     }
 }
 
-void ArgonState::pushNewRequest(AuthCallback callback, AuthProgressCallback progress, AccountData account, web::WebTask req) {
+void ArgonState::pushNewRequest(AuthCallback callback, AuthProgressCallback progress, AccountData account, web::WebTask req, bool forceStrong) {
     size_t id = this->getNextRequestId();
 
     auto preq = new PendingRequest {
@@ -72,6 +72,7 @@ void ArgonState::pushNewRequest(AuthCallback callback, AuthProgressCallback prog
         .callback = std::move(callback),
         .progressCallback = std::move(progress),
         .account = std::move(account),
+        .forceStrong = forceStrong,
     };
 
     this->progress(preq, AuthProgress::RequestedChallenge);
@@ -250,7 +251,7 @@ void ArgonState::restartStage1(PendingRequest* preq) {
     this->progress(preq, AuthProgress::RetryingRequest);
     preq->retrying = true;
 
-    auto task = argon::web::restartStage1(preq->account, preq->stage2ChosenMethod);
+    auto task = argon::web::restartStage1(preq->account, preq->stage2ChosenMethod, preq->forceStrong);
     preq->stage1Listener.setFilter(std::move(task));
 }
 
