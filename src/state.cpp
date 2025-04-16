@@ -1,6 +1,7 @@
 #include "state.hpp"
 
 #include "stages.hpp"
+#include "storage.hpp"
 
 #include <matjson/reflect.hpp>
 
@@ -19,6 +20,7 @@ struct Stage1ResponseData {
     std::string method;
     int id;
     int challenge;
+    std::string ident;
 };
 
 struct Stage3ResponseData {
@@ -32,6 +34,8 @@ ArgonState::ArgonState() {
 }
 
 Result<> ArgonState::setServerUrl(std::string url) {
+    std::lock_guard lock(serverUrlMtx);
+
     if (pendingRequests.size()) {
         return Err("Cannot change server URL while there are pending requests");
     }
@@ -44,6 +48,10 @@ Result<> ArgonState::setServerUrl(std::string url) {
     }
 
     return Ok();
+}
+
+std::lock_guard<std::mutex> ArgonState::lockServerUrl() {
+    return std::lock_guard{serverUrlMtx};
 }
 
 std::string_view ArgonState::getServerUrl() const {
@@ -159,7 +167,10 @@ void ArgonState::processStage1Response(PendingRequest* req, web::WebResponse* re
 
     auto data = std::move(datares).unwrap();
 
-    // Start stage 2.
+    // store server ident
+    req->serverIdent = std::move(data.ident);
+
+    // start stage 2
     this->progress(req, req->retrying ? AuthProgress::RetryingSolve : AuthProgress::SolvingChallenge);
     req->stage2ChosenMethod = data.method;
     argon::stage2Start(req, data.id, data.challenge);
@@ -255,6 +266,11 @@ void ArgonState::handleCancellation(PendingRequest* req) {
 
 void ArgonState::handleSuccessfulAuth(PendingRequest* req, std::string authtoken) {
     // TODO: store authtoken here
+    auto res = ArgonStorage::get().storeAuthToken(req, authtoken);
+    if (!res) {
+        log::warn("(Argon) failed to save authtoken: {}", res.unwrapErr());
+    }
+
     req->callback(Ok(std::move(authtoken)));
     this->cleanupRequest(req);
 }

@@ -3,34 +3,16 @@
 #include <argon/argon.hpp>
 #include <chrono>
 #include "web.hpp"
+#include "singleton_base.hpp"
 
 namespace argon {
-
-template <typename Derived>
-class SingletonBase {
-public:
-    // no copy
-    SingletonBase(const SingletonBase&) = delete;
-    SingletonBase& operator=(const SingletonBase&) = delete;
-    // no move
-    SingletonBase(SingletonBase&&) = delete;
-    SingletonBase& operator=(SingletonBase&&) = delete;
-
-    static Derived& get() {
-        static Derived instance;
-
-        return instance;
-    }
-
-protected:
-    SingletonBase() {}
-};
 
 struct PendingRequest {
     size_t id;
     AuthCallback callback;
     AuthProgressCallback progressCallback;
     AccountData account;
+    std::string serverIdent;
     std::string challengeSolution;
     std::string stage2ChosenMethod;
     bool retrying = false;
@@ -44,6 +26,7 @@ class ArgonState : public SingletonBase<ArgonState> {
 public:
     geode::Result<> setServerUrl(std::string url);
     std::string_view getServerUrl() const;
+    std::lock_guard<std::mutex> lockServerUrl();
 
     void progress(PendingRequest* req, AuthProgress progress);
     void pushNewRequest(AuthCallback callback, AuthProgressCallback progress, AccountData account, web::WebTask req);
@@ -54,6 +37,7 @@ public:
 protected:
     friend class SingletonBase;
 
+    std::mutex serverUrlMtx;
     std::string serverUrl;
     std::unordered_set<PendingRequest*> pendingRequests;
     size_t nextReqId = 1;
