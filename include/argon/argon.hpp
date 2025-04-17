@@ -35,5 +35,5 @@ namespace argon {
 
     geode::Result<> setServerUrl(std::string url);
 
-    geode::Result<geode::utils::web::WebTask> startAuthInternal(AccountData account, std::string_view preferredMethod, bool forceStrong);
+    geode::Result<geode::utils::web::WebTask> startAuthInternal(const AccountData& account, std::string_view preferredMethod, bool forceStrong);
 }

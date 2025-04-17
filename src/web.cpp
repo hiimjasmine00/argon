@@ -11,7 +11,17 @@ namespace argon::web {
 
 static std::string base64Encode(const gd::string& data) {
     // trust me i did not want to use this but oh well
-    return cocos2d::ZipUtils::base64URLEncode(data);
+    std::string ret = cocos2d::ZipUtils::base64URLEncode(data);
+    ret.resize(strlen(ret.c_str()));
+
+    return ret;
+}
+
+static std::string base64EncodeEnc(const gd::string& data, gd::string key) {
+    std::string ret = ZipUtils::base64EncodeEnc(data, key);
+    ret.resize(strlen(ret.c_str()));
+
+    return ret;
 }
 
 static std::string getBaseServerUrl() {
@@ -82,52 +92,52 @@ static const char* platformString() {
 
 std::string getUserAgent() {
     return fmt::format("argon/v{} ({}, Geode {}, GD {})",
-			ARGON_VERSION,
-			platformString(),
-			Loader::get()->getVersion(),
-			Loader::get()->getGameVersion());
+            ARGON_VERSION,
+            platformString(),
+            Loader::get()->getVersion(),
+            Loader::get()->getGameVersion());
 }
 
 WebTask startStage1(const AccountData& account, std::string_view preferredMethod, bool forceStrong) {
-	auto& argon = ArgonState::get();
-	std::string_view serverUrl = argon.getServerUrl();
+    auto& argon = ArgonState::get();
+    std::string_view serverUrl = argon.getServerUrl();
 
-	auto payload = matjson::makeObject({
-		{"accountId", account.accountId},
-		{"userId", account.userId},
-		{"username", account.username},
+    auto payload = matjson::makeObject({
+        {"accountId", account.accountId},
+        {"userId", account.userId},
+        {"username", account.username},
         {"forceStrong", forceStrong},
-		{"reqMod", Mod::get()->getID()},
-		{"preferred", preferredMethod}
-	});
+        {"reqMod", Mod::get()->getID()},
+        {"preferred", preferredMethod}
+    });
 
-	auto req = web::WebRequest()
-		.userAgent(getUserAgent())
-		.timeout(std::chrono::seconds(10))
-		.bodyJSON(payload)
-		.post(fmt::format("{}/v1/challenge/start", serverUrl));
+    auto req = web::WebRequest()
+        .userAgent(getUserAgent())
+        .timeout(std::chrono::seconds(10))
+        .bodyJSON(payload)
+        .post(fmt::format("{}/v1/challenge/start", serverUrl));
 
     return std::move(req);
 }
 
 WebTask restartStage1(const AccountData& account, std::string_view preferredMethod, bool forceStrong) {
-	auto& argon = ArgonState::get();
-	std::string_view serverUrl = argon.getServerUrl();
+    auto& argon = ArgonState::get();
+    std::string_view serverUrl = argon.getServerUrl();
 
-	auto payload = matjson::makeObject({
-		{"accountId", account.accountId},
-		{"userId", account.userId},
-		{"username", account.username},
+    auto payload = matjson::makeObject({
+        {"accountId", account.accountId},
+        {"userId", account.userId},
+        {"username", account.username},
         {"forceStrong", forceStrong},
-		{"reqMod", Mod::get()->getID()},
-		{"preferred", preferredMethod}
-	});
+        {"reqMod", Mod::get()->getID()},
+        {"preferred", preferredMethod}
+    });
 
-	auto req = web::WebRequest()
-		.userAgent(getUserAgent())
-		.timeout(std::chrono::seconds(10))
-		.bodyJSON(payload)
-		.post(fmt::format("{}/v1/challenge/restart", serverUrl));
+    auto req = web::WebRequest()
+        .userAgent(getUserAgent())
+        .timeout(std::chrono::seconds(10))
+        .bodyJSON(payload)
+        .post(fmt::format("{}/v1/challenge/restart", serverUrl));
 
     return std::move(req);
 }
@@ -138,7 +148,8 @@ WebTask startStage2Message(const AccountData& account, int id, std::string_view 
     auto payload = fmt::format(
         "accountID={}&gjp2={}&gameVersion=22&binaryVersion=45"
         "&secret=Wmfd2893gb7&toAccountID={}&subject={}&body={}",
-        account.accountId, account.gjp2, id, base64Encode(text), base64Encode("This is a message sent to verify your account, it can be safely deleted.")
+        account.accountId, account.gjp2, id, base64Encode(text),
+        base64EncodeEnc("This is a message sent to verify your account, it can be safely deleted.", "14251")
     );
 
     // Upload a message to the GD bot account
@@ -146,7 +157,6 @@ WebTask startStage2Message(const AccountData& account, int id, std::string_view 
         .timeout(std::chrono::seconds(20))
         .bodyString(payload)
         .userAgent("")
-        .header("Content-Type", "application/x-www-form-urlencoded")
         .post(fmt::format("{}/uploadGJMessage20.php", getBaseServerUrl()));
 
     return std::move(req);
@@ -157,30 +167,31 @@ WebTask startStage2Comment(const AccountData& account, int id, std::string_view 
 }
 
 WebTask startStage3(const AccountData& account, std::string_view solution) {
-	auto& argon = ArgonState::get();
-	std::string_view serverUrl = argon.getServerUrl();
+    auto& argon = ArgonState::get();
+    std::string_view serverUrl = argon.getServerUrl();
 
-	auto payload = matjson::makeObject({
+    auto payload = matjson::makeObject({
+        {"accountId", account.accountId},
         {"solution", solution}
-	});
+    });
 
-	auto req = web::WebRequest()
-		.userAgent(getUserAgent())
-		.timeout(std::chrono::seconds(10))
-		.bodyJSON(payload)
-		.post(fmt::format("{}/v1/challenge/verify", serverUrl));
+    auto req = web::WebRequest()
+        .userAgent(getUserAgent())
+        .timeout(std::chrono::seconds(10))
+        .bodyJSON(payload)
+        .post(fmt::format("{}/v1/challenge/verify", serverUrl));
 
     return std::move(req);
 }
 
 WebTask pollStage3(const AccountData& accData) {
-	auto& argon = ArgonState::get();
-	std::string_view serverUrl = argon.getServerUrl();
+    auto& argon = ArgonState::get();
+    std::string_view serverUrl = argon.getServerUrl();
 
-	auto req = web::WebRequest()
-		.userAgent(getUserAgent())
-		.timeout(std::chrono::seconds(10))
-		.get(fmt::format("{}/v1/challenge/verifypoll", serverUrl));
+    auto req = web::WebRequest()
+        .userAgent(getUserAgent())
+        .timeout(std::chrono::seconds(10))
+        .get(fmt::format("{}/v1/challenge/verifypoll", serverUrl));
 
     return std::move(req);
 }

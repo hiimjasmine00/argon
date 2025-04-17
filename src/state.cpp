@@ -4,6 +4,7 @@
 #include "storage.hpp"
 
 #include <matjson/reflect.hpp>
+#include <matjson/std.hpp>
 #include <asp/time/sleep.hpp>
 
 using namespace geode::prelude;
@@ -23,12 +24,6 @@ struct Stage1ResponseData {
     int id;
     int challenge;
     std::string ident;
-};
-
-struct Stage3ResponseData {
-    bool verified;
-    std::string authtoken; // if successful, this is the authtoken
-    int pollAfter; // if unsuccessful, this says how many ms to wait until polling again
 };
 
 ArgonState::ArgonState() {
@@ -150,6 +145,7 @@ PendingRequest* ArgonState::getRequestById(size_t id) {
 }
 
 void ArgonState::cleanupRequest(PendingRequest* req) {
+    log::debug("Deleting request {}", (void*)req);
     this->pendingRequests.lock()->erase(req);
     delete req;
 }
@@ -237,21 +233,32 @@ void ArgonState::processStage3Response(PendingRequest* req, web::WebResponse* re
         return;
     }
 
-    auto datares = obj["data"].as<Stage3ResponseData>();
-    if (!datares) {
+    auto data = obj["data"];
+    if (data.isNull()) {
         this->handleStage3Error(req, "Malformed server response ('data' key missing or format is invalid)");
         return;
     }
 
-    auto data = std::move(datares).unwrap();
+    bool verified = data["verified"].asBool().unwrapOr(false);
 
-    if (data.verified) {
-        this->handleSuccessfulAuth(req, std::move(data.authtoken));
+    if (verified) {
+        auto authtoken = data["authtoken"].asString().unwrapOrDefault();
+        if (authtoken.empty()) {
+            this->handleStage3Error(req, "Malformed server response ('authtoken' key is missing or invalid)");
+            return;
+        }
+
+        this->handleSuccessfulAuth(req, std::move(authtoken));
         return;
     }
 
     // if we did not succeed, we shall poll again after some time
-    this->waitAndRetryStage3(req, data.pollAfter);
+    if (auto pollAfter = data["pollAfter"].asInt()) {
+        this->waitAndRetryStage3(req, pollAfter.unwrap());
+    } else {
+        this->handleStage3Error(req, "Malformed server response ('pollAfter' key is missing or invalid)");
+    }
+
 }
 
 void ArgonState::restartStage1(PendingRequest* preq) {
@@ -304,6 +311,7 @@ void ArgonState::waitAndRetryStage3(PendingRequest* req, int ms) {
     }
 
     Duration duration = Duration::fromMillis(ms);
+    log::debug("Waiting for {} and polling again..", duration.toString());
 
     auto task = [duration, req]() -> web::WebTask {
         co_await sleepFor(duration);
