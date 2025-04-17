@@ -4,14 +4,16 @@
 #include "storage.hpp"
 
 #include <matjson/reflect.hpp>
+#include <asp/time/sleep.hpp>
 
 using namespace geode::prelude;
+using namespace asp::time;
 
 namespace argon {
 
 Task<void> sleepFor(auto duration) {
     return Task<void>::run([duration](auto, auto) {
-        std::this_thread::sleep_for(duration);
+        asp::time::sleep(duration);
         return true;
     });
 }
@@ -31,12 +33,23 @@ struct Stage3ResponseData {
 
 ArgonState::ArgonState() {
     (void) this->setServerUrl("https://argon.dankmeme.dev").unwrap();
+
+    // thread responsible for compute heavy tasks, like saving the authtoken
+    workerThread.setLoopFunction([this](auto& stopToken) {
+        if (auto task = workerThreadTasks.popTimeout(Duration::fromMillis(250))) {
+            (*task)();
+        }
+    });
+}
+
+ArgonState::~ArgonState() {
+    workerThread.stopAndWait();
 }
 
 Result<> ArgonState::setServerUrl(std::string url) {
     std::lock_guard lock(serverUrlMtx);
 
-    if (pendingRequests.size()) {
+    if (pendingRequests.lock()->size()) {
         return Err("Cannot change server URL while there are pending requests");
     }
 
@@ -50,8 +63,8 @@ Result<> ArgonState::setServerUrl(std::string url) {
     return Ok();
 }
 
-std::lock_guard<std::mutex> ArgonState::lockServerUrl() {
-    return std::lock_guard{serverUrlMtx};
+asp::Mutex<>::Guard ArgonState::lockServerUrl() {
+    return serverUrlMtx.lock();
 }
 
 std::string_view ArgonState::getServerUrl() const {
@@ -91,7 +104,7 @@ void ArgonState::pushNewRequest(AuthCallback callback, AuthProgressCallback prog
 
     preq->stage1Listener.setFilter(std::move(req));
 
-    this->pendingRequests.insert(preq);
+    this->pendingRequests.lock()->insert(preq);
 }
 
 void ArgonState::pushStage2Request(PendingRequest* preq, geode::utils::web::WebTask req) {
@@ -127,7 +140,7 @@ void ArgonState::pushStage3Request(PendingRequest* preq, web::WebTask req) {
 }
 
 PendingRequest* ArgonState::getRequestById(size_t id) {
-    for (auto req : this->pendingRequests) {
+    for (auto req : *this->pendingRequests.lock()) {
         if (req->id == id) {
             return req;
         }
@@ -137,7 +150,7 @@ PendingRequest* ArgonState::getRequestById(size_t id) {
 }
 
 void ArgonState::cleanupRequest(PendingRequest* req) {
-    this->pendingRequests.erase(req);
+    this->pendingRequests.lock()->erase(req);
     delete req;
 }
 
@@ -198,7 +211,7 @@ void ArgonState::processStage2Response(PendingRequest* req, web::WebResponse* re
 
     // we can assume that stage 2 succeeded now, begin stage 3 by asking the server if auth succeeded
     this->progress(req, req->retrying ? AuthProgress::RetryingVerify : AuthProgress::VerifyingChallenge);
-    req->startedVerificationAt = std::chrono::system_clock::now();
+    req->startedVerificationAt = SystemTime::now();
     argon::stage3Start(req);
 }
 
@@ -266,30 +279,31 @@ void ArgonState::handleCancellation(PendingRequest* req) {
 }
 
 void ArgonState::handleSuccessfulAuth(PendingRequest* req, std::string authtoken) {
-    // TODO: store authtoken here
-    auto res = ArgonStorage::get().storeAuthToken(req, authtoken);
-    if (!res) {
-        log::warn("(Argon) failed to save authtoken: {}", res.unwrapErr());
-    }
+    req->callback(Ok(authtoken));
 
-    req->callback(Ok(std::move(authtoken)));
-    this->cleanupRequest(req);
+    workerThreadTasks.push([this, req, authtoken = std::move(authtoken)] {
+        auto res = ArgonStorage::get().storeAuthToken(req, authtoken);
+        if (!res) {
+            log::warn("(Argon) failed to save authtoken: {}", res.unwrapErr());
+        }
+
+        this->cleanupRequest(req);
+    });
 }
 
 void ArgonState::waitAndRetryStage3(PendingRequest* req, int ms) {
     // if over a minute has passed, we should just give up
-    auto now = std::chrono::system_clock::now();
-    auto diff = now - req->startedVerificationAt;
-    if (diff > std::chrono::minutes(1)) {
+    if (req->startedVerificationAt.elapsed() > Duration::fromMinutes(1)) {
         this->handleStage3Error(req, "Server did not verify the solution in a reasonable amount of time");
         return;
     }
 
-    std::chrono::milliseconds duration(ms);
-    if (duration.count() < 0 || duration.count() > 60000) {
+    if (ms < 0 || ms > 60000) {
         this->handleStage3Error(req, "Server sent an invalid pollAfter value");
         return;
     }
+
+    Duration duration = Duration::fromMillis(ms);
 
     auto task = [duration, req]() -> web::WebTask {
         co_await sleepFor(duration);

@@ -1,9 +1,13 @@
 #pragma once
 
 #include <argon/argon.hpp>
-#include <chrono>
 #include "web.hpp"
 #include "singleton_base.hpp"
+
+#include <asp/sync/Mutex.hpp>
+#include <asp/sync/Channel.hpp>
+#include <asp/thread/Thread.hpp>
+#include <asp/time/SystemTime.hpp>
 
 namespace argon {
 
@@ -20,14 +24,14 @@ struct PendingRequest {
     web::WebListener stage1Listener;
     web::WebListener stage2Listener;
     web::WebListener stage3Listener;
-    std::chrono::system_clock::time_point startedVerificationAt;
+    asp::time::SystemTime startedVerificationAt;
 };
 
 class ArgonState : public SingletonBase<ArgonState> {
 public:
     geode::Result<> setServerUrl(std::string url);
     std::string_view getServerUrl() const;
-    std::lock_guard<std::mutex> lockServerUrl();
+    asp::Mutex<>::Guard lockServerUrl();
 
     void progress(PendingRequest* req, AuthProgress progress);
     void pushNewRequest(AuthCallback callback, AuthProgressCallback progress, AccountData account, web::WebTask req, bool forceStrong);
@@ -38,12 +42,15 @@ public:
 protected:
     friend class SingletonBase;
 
-    std::mutex serverUrlMtx;
+    asp::Mutex<> serverUrlMtx;
     std::string serverUrl;
-    std::unordered_set<PendingRequest*> pendingRequests;
+    asp::Mutex<std::unordered_set<PendingRequest*>> pendingRequests;
     size_t nextReqId = 1;
+    asp::Thread<> workerThread;
+    asp::Channel<std::function<void()>> workerThreadTasks;
 
     ArgonState();
+    ~ArgonState();
 
     size_t getNextRequestId();
     PendingRequest* getRequestById(size_t id);

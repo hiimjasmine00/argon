@@ -28,3 +28,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE ARGON_VERSION="${PROJECT_VERS
 target_link_libraries(${PROJECT_NAME} geode-sdk)
 
 target_include_directories(${PROJECT_NAME} PUBLIC include)
+
+# Add asp
+CPMAddPackage("gh:dankmeme01/asp2#e422b95")
+target_link_libraries(${PROJECT_NAME} asp)
