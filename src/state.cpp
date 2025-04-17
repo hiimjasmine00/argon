@@ -47,7 +47,7 @@ ArgonState::~ArgonState() {
 }
 
 Result<> ArgonState::setServerUrl(std::string url) {
-    std::lock_guard lock(serverUrlMtx);
+    auto _lock = serverUrlMtx.lock();
 
     if (pendingRequests.lock()->size()) {
         return Err("Cannot change server URL while there are pending requests");
