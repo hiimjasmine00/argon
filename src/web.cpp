@@ -24,7 +24,7 @@ static std::string base64EncodeEnc(const gd::string& data, gd::string key) {
     return ret;
 }
 
-static std::string getBaseServerUrl() {
+std::string getBaseServerUrl() {
     if (Loader::get()->isModLoaded("km7dev.server_api")) {
         auto url = ServerAPIEvents::getCurrentServer().url;
         if (!url.empty() && url != "NONE_REGISTERED") {
@@ -142,7 +142,7 @@ WebTask restartStage1(const AccountData& account, std::string_view preferredMeth
     return std::move(req);
 }
 
-WebTask startStage2Message(const AccountData& account, int id, std::string_view solution) {
+WebTask startStage2Message(const AccountData& account, std::string_view serverUrl, int id, std::string_view solution) {
     std::string text = fmt::format("#ARGON# {}", solution);
 
     auto payload = fmt::format(
@@ -157,12 +157,34 @@ WebTask startStage2Message(const AccountData& account, int id, std::string_view 
         .timeout(std::chrono::seconds(20))
         .bodyString(payload)
         .userAgent("")
-        .post(fmt::format("{}/uploadGJMessage20.php", getBaseServerUrl()));
+        .post(fmt::format("{}/uploadGJMessage20.php", serverUrl));
 
     return std::move(req);
 }
 
-WebTask startStage2Comment(const AccountData& account, int id, std::string_view solution) {
+WebTask startStage2Comment(const AccountData& account, std::string_view serverUrl, int id, std::string_view solution) {
+    return {}; // TODO
+}
+
+WebTask stage2MessageCleanup(const AccountData& account, int id, std::string_view serverUrl) {
+    auto payload = fmt::format(
+        "accountID={}&gjp2={}&gameVersion=22&binaryVersion=45"
+        "&secret=Wmfd2893gb7&isSender=1&messageID={}",
+        account.accountId, account.gjp2, id
+    );
+
+    // delete the message
+    auto req = web::WebRequest()
+        .timeout(std::chrono::seconds(20))
+        .bodyString(payload)
+        .userAgent("")
+        .post(fmt::format("{}/deleteGJMessages20.php", serverUrl));
+
+    return std::move(req);
+
+}
+
+WebTask stage2CommentCleanup(const AccountData& account, int id, std::string_view serverUrl) {
     return {}; // TODO
 }
 
@@ -184,14 +206,20 @@ WebTask startStage3(const AccountData& account, std::string_view solution) {
     return std::move(req);
 }
 
-WebTask pollStage3(const AccountData& accData) {
+WebTask pollStage3(const AccountData& account, std::string_view solution) {
     auto& argon = ArgonState::get();
     std::string_view serverUrl = argon.getServerUrl();
+
+    auto payload = matjson::makeObject({
+        {"accountId", account.accountId},
+        {"solution", solution}
+    });
 
     auto req = web::WebRequest()
         .userAgent(getUserAgent())
         .timeout(std::chrono::seconds(10))
-        .get(fmt::format("{}/v1/challenge/verifypoll", serverUrl));
+        .bodyJSON(payload)
+        .post(fmt::format("{}/v1/challenge/verifypoll", serverUrl));
 
     return std::move(req);
 }

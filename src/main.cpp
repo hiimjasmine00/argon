@@ -1,11 +1,16 @@
 #include <argon/argon.hpp>
+
 #include "state.hpp"
+#include "storage.hpp"
+#include "web.hpp"
 
 #include <Geode/Geode.hpp>
 
 using namespace geode::prelude;
 
 namespace argon {
+
+Result<web::WebTask> startAuthInternal(const AccountData& account, std::string_view preferredMethod, bool forceStrong);
 
 std::string authProgressToString(AuthProgress progress) {
     switch (progress) {
@@ -36,7 +41,8 @@ AccountData getGameAccountData() {
         .accountId = accountId,
         .userId = userId,
         .username = std::move(username),
-        .gjp2 = std::move(gjp)
+        .gjp2 = std::move(gjp),
+        .serverUrl = argon::web::getBaseServerUrl(),
     };
 }
 
@@ -52,6 +58,12 @@ Result<> startAuth(AuthCallback callback, AuthProgressCallback progress, bool fo
 Result<> startAuthWithAccount(AccountData account, AuthCallback callback, AuthProgressCallback progress, bool forceStrong) {
     auto& argon = ArgonState::get();
     auto _ = argon.lockServerUrl();
+
+    // use cached token if possible
+    if (auto token = ArgonStorage::get().getAuthToken(account, argon.getServerUrl())) {
+        callback(std::move(Ok(token.value())));
+        return Ok();
+    }
 
     GEODE_UNWRAP_INTO(auto task, startAuthInternal(account, "message", forceStrong));
 
@@ -71,6 +83,8 @@ Result<web::WebTask> startAuthInternal(const AccountData& account, std::string_v
         return Err("Invalid account data");
     }
 
+    initConfigLock();
+
     // Start stage 1 authentication.
 
     return Ok(argon::web::startStage1(account, preferredMethod, forceStrong));
@@ -82,6 +96,26 @@ Result<> setServerUrl(std::string url) {
     }
 
     return ArgonState::get().setServerUrl(std::move(url));
+}
+
+void initConfigLock() {
+    ArgonState::get().initConfigLock();
+}
+
+void clearAllTokens() {
+    ArgonStorage::get().clearAllTokens();
+}
+
+void clearToken() {
+    clearToken(GJAccountManager::get()->m_accountID);
+}
+
+void clearToken(int accountId) {
+    ArgonStorage::get().clearTokens(accountId);
+}
+
+void clearToken(const AccountData& account) {
+    clearToken(account.accountId);
 }
 
 }

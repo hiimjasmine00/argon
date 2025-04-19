@@ -20,6 +20,7 @@ struct PendingRequest {
     std::string serverIdent;
     std::string challengeSolution;
     std::string stage2ChosenMethod;
+    int userCommentId;
     bool retrying = false;
     web::WebListener stage1Listener;
     web::WebListener stage2Listener;
@@ -32,6 +33,8 @@ public:
     geode::Result<> setServerUrl(std::string url);
     std::string_view getServerUrl() const;
     asp::Mutex<>::Guard lockServerUrl();
+    std::lock_guard<std::mutex> acquireConfigLock();
+    void initConfigLock();
 
     void progress(PendingRequest* req, AuthProgress progress);
     void pushNewRequest(AuthCallback callback, AuthProgressCallback progress, AccountData account, web::WebTask req, bool forceStrong);
@@ -43,11 +46,10 @@ protected:
     friend class SingletonBase;
 
     asp::Mutex<> serverUrlMtx;
+    std::mutex* configLock = nullptr;
     std::string serverUrl;
     asp::Mutex<std::unordered_set<PendingRequest*>> pendingRequests;
     size_t nextReqId = 1;
-    asp::Thread<> workerThread;
-    asp::Channel<std::function<void()>> workerThreadTasks;
 
     ArgonState();
     ~ArgonState();

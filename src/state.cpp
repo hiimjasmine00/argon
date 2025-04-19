@@ -6,6 +6,7 @@
 #include <matjson/reflect.hpp>
 #include <matjson/std.hpp>
 #include <asp/time/sleep.hpp>
+#include <asp/data.hpp>
 
 using namespace geode::prelude;
 using namespace asp::time;
@@ -28,18 +29,9 @@ struct Stage1ResponseData {
 
 ArgonState::ArgonState() {
     (void) this->setServerUrl("https://argon.dankmeme.dev").unwrap();
-
-    // thread responsible for compute heavy tasks, like saving the authtoken
-    workerThread.setLoopFunction([this](auto& stopToken) {
-        if (auto task = workerThreadTasks.popTimeout(Duration::fromMillis(250))) {
-            (*task)();
-        }
-    });
 }
 
-ArgonState::~ArgonState() {
-    workerThread.stopAndWait();
-}
+ArgonState::~ArgonState() {}
 
 Result<> ArgonState::setServerUrl(std::string url) {
     auto _lock = serverUrlMtx.lock();
@@ -60,6 +52,43 @@ Result<> ArgonState::setServerUrl(std::string url) {
 
 asp::Mutex<>::Guard ArgonState::lockServerUrl() {
     return serverUrlMtx.lock();
+}
+
+std::lock_guard<std::mutex> ArgonState::acquireConfigLock() {
+    if (!configLock) {
+        this->initConfigLock();
+    }
+
+    return std::lock_guard(*configLock);
+}
+
+void ArgonState::initConfigLock() {
+    if (configLock) return;
+
+    // note: this function is horrible and really has to be thread safe :)
+
+    static const std::string LOCK_KEY = "dankmeme.argon/_config_lock_v1_94c02415";
+
+    auto gm = GameManager::get();
+    auto lockobj = gm->getUserObject(LOCK_KEY);
+    if (lockobj) {
+        // cast double -> u64 -> uintptr_t (nop unless 32-bit) -> Mutex*
+        uint64_t ptrval = asp::data::bit_cast<uint64_t>(static_cast<CCDouble*>(lockobj)->getValue());
+        configLock = reinterpret_cast<std::mutex*>(static_cast<uintptr_t>(ptrval));
+        return;
+    }
+
+    // otherwise, initialize ourselves
+
+    // create the mutex on the heap and put it in the gamemanager so it lives
+    configLock = new std::mutex{};
+
+    lockobj = CCDouble::create(
+        // cast void* -> usize -> u64 (last cast due to 32-bit platforms) -> bit_cast to 64-bit double
+        asp::data::bit_cast<double>(static_cast<uint64_t>(reinterpret_cast<uintptr_t>(configLock)))
+    );
+
+    gm->setUserObject(LOCK_KEY, lockobj);
 }
 
 std::string_view ArgonState::getServerUrl() const {
@@ -145,7 +174,7 @@ PendingRequest* ArgonState::getRequestById(size_t id) {
 }
 
 void ArgonState::cleanupRequest(PendingRequest* req) {
-    log::debug("Deleting request {}", (void*)req);
+    log::debug("(Argon) Deleting request {}", (void*)req);
     this->pendingRequests.lock()->erase(req);
     delete req;
 }
@@ -248,6 +277,8 @@ void ArgonState::processStage3Response(PendingRequest* req, web::WebResponse* re
             return;
         }
 
+        req->userCommentId = data["commentId"].asInt().unwrapOrDefault();
+
         this->handleSuccessfulAuth(req, std::move(authtoken));
         return;
     }
@@ -288,14 +319,20 @@ void ArgonState::handleCancellation(PendingRequest* req) {
 void ArgonState::handleSuccessfulAuth(PendingRequest* req, std::string authtoken) {
     req->callback(Ok(authtoken));
 
-    workerThreadTasks.push([this, req, authtoken = std::move(authtoken)] {
+    // asynchronously delete the message
+    if (req->userCommentId != 0) {
+        argon::stage2Cleanup(req);
+    }
+
+    // save authtoken in another thread, then cleanup this request
+    std::thread([this, req, authtoken = std::move(authtoken)] {
         auto res = ArgonStorage::get().storeAuthToken(req, authtoken);
         if (!res) {
             log::warn("(Argon) failed to save authtoken: {}", res.unwrapErr());
         }
 
         this->cleanupRequest(req);
-    });
+    }).detach();
 }
 
 void ArgonState::waitAndRetryStage3(PendingRequest* req, int ms) {
@@ -311,17 +348,20 @@ void ArgonState::waitAndRetryStage3(PendingRequest* req, int ms) {
     }
 
     Duration duration = Duration::fromMillis(ms);
-    log::debug("Waiting for {} and polling again..", duration.toString());
+    log::debug("(Argon) Waiting for {} and polling again..", duration.toString());
 
-    auto task = [duration, req]() -> web::WebTask {
+    // Note to self: don't pass stuff in lambda captures here, it gets corrupted unlike args
+    auto task = [](Duration duration, PendingRequest* req) -> web::WebTask {
         co_await sleepFor(duration);
-        co_return co_await argon::web::pollStage3(req->account);
-    }();
+        co_return co_await argon::web::pollStage3(req->account, req->challengeSolution);
+    }(duration, req);
 
     req->stage3Listener.setFilter(std::move(task));
 }
 
 void ArgonState::handleStage2Error(PendingRequest* req, std::string error) {
+    // TODO: we do not support comment auth right now, add this later
+#if 0
     // If we can, we should try another authentication method, before completely failing.
     if (!req->retrying) {
         log::warn("(Argon) Stage 2 failed with method \"{}\", retrying with a different one", req->stage2ChosenMethod);
@@ -330,6 +370,7 @@ void ArgonState::handleStage2Error(PendingRequest* req, std::string error) {
         this->restartStage1(req);
         return;
     }
+#endif
 
     // otherwise, just fail
     req->callback(Err(std::move(error)));
