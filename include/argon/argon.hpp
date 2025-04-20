@@ -24,6 +24,8 @@ namespace argon {
         RetryingVerify,
     };
 
+    // Converts the `AuthProgress` enum to a human readable string,
+    // e.g. "Requesting challenge", "Solving challenge"
     std::string authProgressToString(AuthProgress progress);
 
     using AuthCallback = std::function<void(geode::Result<std::string>)>;
@@ -33,7 +35,7 @@ namespace argon {
     // Collects the account data of the currently logged in user. Not thread-safe.
     AccountData getGameAccountData();
 
-    // Set the URL of the used Argon server
+    // Set the URL of the used Argon server, not thread-safe.
     geode::Result<> setServerUrl(std::string url);
 
     // Initializes the config lock structure for interoperability between other mods using Argon.

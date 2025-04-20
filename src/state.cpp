@@ -29,7 +29,7 @@ struct Stage1ResponseData {
 };
 
 ArgonState::ArgonState() {
-    (void) this->setServerUrl("https://argon.dankmeme.dev").unwrap();
+    (void) this->setServerUrl("https://argon.globed.dev").unwrap();
 }
 
 ArgonState::~ArgonState() {}
