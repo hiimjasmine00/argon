@@ -20,6 +20,7 @@ struct PendingRequest {
     std::string serverIdent;
     std::string challengeSolution;
     std::string stage2ChosenMethod;
+    uint32_t challengeId = 0;
     int userCommentId;
     bool retrying = false;
     web::WebListener stage1Listener;

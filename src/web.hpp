@@ -22,6 +22,6 @@ namespace argon::web {
     WebTask stage2MessageCleanup(const AccountData& account, int id, std::string_view serverUrl);
     WebTask stage2CommentCleanup(const AccountData& account, int id, std::string_view serverUrl);
 
-    WebTask startStage3(const AccountData& account, std::string_view solution);
-    WebTask pollStage3(const AccountData& account, std::string_view solution);
+    WebTask startStage3(const AccountData& account, uint32_t challengeId, std::string_view solution);
+    WebTask pollStage3(const AccountData& account, uint32_t challengeId, std::string_view solution);
 }

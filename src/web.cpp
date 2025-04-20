@@ -188,11 +188,12 @@ WebTask stage2CommentCleanup(const AccountData& account, int id, std::string_vie
     return {}; // TODO
 }
 
-WebTask startStage3(const AccountData& account, std::string_view solution) {
+WebTask startStage3(const AccountData& account, uint32_t challengeId, std::string_view solution) {
     auto& argon = ArgonState::get();
     std::string_view serverUrl = argon.getServerUrl();
 
     auto payload = matjson::makeObject({
+        {"challengeId", challengeId},
         {"accountId", account.accountId},
         {"solution", solution}
     });
@@ -206,11 +207,12 @@ WebTask startStage3(const AccountData& account, std::string_view solution) {
     return std::move(req);
 }
 
-WebTask pollStage3(const AccountData& account, std::string_view solution) {
+WebTask pollStage3(const AccountData& account, uint32_t challengeId, std::string_view solution) {
     auto& argon = ArgonState::get();
     std::string_view serverUrl = argon.getServerUrl();
 
     auto payload = matjson::makeObject({
+        {"challengeId", challengeId},
         {"accountId", account.accountId},
         {"solution", solution}
     });

@@ -68,7 +68,7 @@ void stage2CommentCleanup(PendingRequest* req) {
 void stage3Start(PendingRequest* preq) {
     auto& argon = ArgonState::get();
 
-    auto task = argon::web::startStage3(preq->account, preq->challengeSolution);
+    auto task = argon::web::startStage3(preq->account, preq->challengeId, preq->challengeSolution);
 
     argon.pushStage3Request(preq, std::move(task));
 }

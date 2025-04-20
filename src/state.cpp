@@ -23,6 +23,7 @@ Task<void> sleepFor(auto duration) {
 struct Stage1ResponseData {
     std::string method;
     int id;
+    uint32_t challengeId;
     int challenge;
     std::string ident;
 };
@@ -206,12 +207,13 @@ void ArgonState::processStage1Response(PendingRequest* req, web::WebResponse* re
 
     auto data = std::move(datares).unwrap();
 
-    // store server ident
+    // store some values
     req->serverIdent = std::move(data.ident);
+    req->challengeId = data.challengeId;
+    req->stage2ChosenMethod = data.method;
 
     // start stage 2
     this->progress(req, req->retrying ? AuthProgress::RetryingSolve : AuthProgress::SolvingChallenge);
-    req->stage2ChosenMethod = data.method;
     argon::stage2Start(req, data.id, data.challenge);
 }
 
@@ -353,7 +355,7 @@ void ArgonState::waitAndRetryStage3(PendingRequest* req, int ms) {
     // Note to self: don't pass stuff in lambda captures here, it gets corrupted unlike args
     auto task = [](Duration duration, PendingRequest* req) -> web::WebTask {
         co_await sleepFor(duration);
-        co_return co_await argon::web::pollStage3(req->account, req->challengeSolution);
+        co_return co_await argon::web::pollStage3(req->account, req->challengeId, req->challengeSolution);
     }(duration, req);
 
     req->stage3Listener.setFilter(std::move(task));
