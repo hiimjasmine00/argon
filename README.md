@@ -80,3 +80,5 @@ Few more functions are provided for managing tokens and for ensuring thread safe
 ## Usage (server-side)
 
 After the user has generated an authtoken, they should send it to your server, which in turn will send the token to the Argon server for validation. Server-side API has its own [documentation](https://github.com/GlobedGD/argon-server/blob/main/docs/server-api.md) which describes in detail how to use it.
+
+The base url for our Argon server is https://argon.globed.dev
