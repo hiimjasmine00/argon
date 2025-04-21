@@ -68,7 +68,7 @@ If running into token validation issues, tokens can be cleared to attempt authen
 argon::clearToken();
 ```
 
-If using a custom server, the URL can be set like so:
+If you want to use a custom server instead of the one provided by us, the URL can be set like so:
 
 ```cpp
 // this unwrap is safe as long as *no* auth requests are currently running
@@ -79,6 +79,65 @@ Few more functions are provided for managing tokens and for ensuring thread safe
 
 ## Usage (server-side)
 
-After the user has generated an authtoken, they should send it to your server, which in turn will send the token to the Argon server for validation. Server-side API has its own [documentation](https://github.com/GlobedGD/argon-server/blob/main/docs/server-api.md) which describes in detail how to use it.
-
 The base url for our Argon server is https://argon.globed.dev
+
+After the user has generated an authtoken, they should send it to your server, which in turn will send the token to the Argon server for validation. Server-side API has its own [documentation](https://github.com/GlobedGD/argon-server/blob/main/docs/server-api.md) which describes in detail how to use it. You should read these docs, but here's a quick start in Python that you can adapt to other languages:
+
+```py
+import requests
+
+BASE_URL = "https://argon.globed.dev/v1"
+
+def validate(account_id: int, token: str):
+    # This function will validate the account ID and token that your user sent to your server.
+
+    r = requests.get(f"{BASE_URL}/validation/check?account_id={account_id}&authtoken={token}")
+
+    # make sure to check the status code is 200, otherwise return an error to the user!
+    if r.status_code != 200:
+        raise ValueError(f"Error from argon (code {r.status_code}): {r.text}")
+
+    # check actual token validity
+    resp = r.json()
+    if not resp["valid"]:
+        raise ValueError(f"Invalid token: {resp["cause"]}")
+
+    # if resp["valid"] is true, this means the token is valid and we can give user access :)
+    return
+
+def validate_strong(account_id: int, user_id: int, username: str, token: str):
+    # This function will validate the account ID, user ID and username that the user sent to you.
+    # It's strongly advised that you read the notes section before using the strong endpoint,
+    # because it has some caveats!
+    # https://github.com/GlobedGD/argon-server/blob/main/docs/server-api.md#get-v1validationcheck_strong
+
+    r = requests.get(
+        f"{BASE_URL}/validation/check_strong?account_id={account_id}&user_id={user_id}&username={username}&authtoken={token}"
+    )
+
+    # make sure to check the status code
+    if r.status_code != 200:
+        raise ValueError(f"Error from argon (code {r.status_code}): {r.text}")
+
+    # check actual token validity
+    resp = r.json()
+
+    strong_valid = resp["valid"]
+    weak_valid = resp["valid_weak"]
+
+    # if valid_weak is false, then the token is completely invalid or the user is impersonating
+    if not weak_valid:
+        raise ValueError(f"Invalid token: {resp["cause"]}")
+
+    # if valid is false but valid_weak is true, the most likely reason is an invalid client-side username.
+    # tell the user to refresh login in GD account settings.
+    if not strong_valid:
+        raise ValueError("Mismatched username, please refresh login in account settings")
+
+    # if both valid and valid_weak are true, this means the username validation passed successfully :)
+    # you can retrieve the user's *actual* username from the response as well:
+
+    username = resp["username"]
+
+    return
+```
