@@ -13,7 +13,7 @@ namespace argon {
 
 struct PendingRequest {
     size_t id;
-    AuthCallback callback;
+    AuthCallback _callback;
     AuthProgressCallback progressCallback;
     AccountData account;
     bool forceStrong;
@@ -23,10 +23,13 @@ struct PendingRequest {
     uint32_t challengeId = 0;
     int userCommentId;
     bool retrying = false;
+    bool cancelled = false;
     web::WebListener stage1Listener;
     web::WebListener stage2Listener;
     web::WebListener stage3Listener;
     asp::time::SystemTime startedVerificationAt;
+
+    void callback(geode::Result<std::string>&& value);
 };
 
 class ArgonState : public SingletonBase<ArgonState> {

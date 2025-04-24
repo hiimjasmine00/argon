@@ -20,6 +20,14 @@ Task<void> sleepFor(auto duration) {
     });
 }
 
+void PendingRequest::callback(geode::Result<std::string>&& value) {
+    if (this->cancelled) {
+        this->_callback(Err("Argon auth request was cancelled"));
+    } else {
+        this->_callback(std::move(value));
+    }
+}
+
 struct Stage1ResponseData {
     std::string method;
     int id;
@@ -107,7 +115,7 @@ void ArgonState::pushNewRequest(AuthCallback callback, AuthProgressCallback prog
 
     auto preq = new PendingRequest {
         .id = id,
-        .callback = std::move(callback),
+        ._callback = std::move(callback),
         .progressCallback = std::move(progress),
         .account = std::move(account),
         .forceStrong = forceStrong,
@@ -192,7 +200,18 @@ std::optional<Duration> ArgonState::isInProgress(int accountId) {
 }
 
 void ArgonState::killAuthAttempt(int accountId) {
-    // TODO: idk how to do this safely
+    auto reqs = this->pendingRequests.lock();
+
+    for (auto r : *reqs) {
+        if (r->account.accountId == accountId) {
+            r->cancelled = true;
+            r->stage1Listener.getFilter().cancel();
+            r->stage2Listener.getFilter().cancel();
+            r->stage3Listener.getFilter().cancel();
+
+            return;
+        }
+    }
 }
 
 void ArgonState::processStage1Response(PendingRequest* req, web::WebResponse* response) {

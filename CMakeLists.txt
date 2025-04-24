@@ -35,5 +35,5 @@ target_link_libraries(${PROJECT_NAME} geode-sdk)
 target_include_directories(${PROJECT_NAME} PUBLIC include)
 
 # Add asp
-CPMAddPackage("gh:dankmeme01/asp2#e422b95")
+CPMAddPackage("gh:dankmeme01/asp2#ec0d9fc")
 target_link_libraries(${PROJECT_NAME} asp)
