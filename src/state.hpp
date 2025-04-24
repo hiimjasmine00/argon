@@ -36,6 +36,8 @@ public:
     asp::Mutex<>::Guard lockServerUrl();
     std::lock_guard<std::mutex> acquireConfigLock();
     void initConfigLock();
+    std::optional<asp::time::Duration> isInProgress(int accountId);
+    void killAuthAttempt(int accountId);
 
     void progress(PendingRequest* req, AuthProgress progress);
     void pushNewRequest(AuthCallback callback, AuthProgressCallback progress, AccountData account, web::WebTask req, bool forceStrong);

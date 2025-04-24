@@ -175,9 +175,24 @@ PendingRequest* ArgonState::getRequestById(size_t id) {
 }
 
 void ArgonState::cleanupRequest(PendingRequest* req) {
-    log::debug("(Argon) Deleting request {}", (void*)req);
     this->pendingRequests.lock()->erase(req);
     delete req;
+}
+
+std::optional<Duration> ArgonState::isInProgress(int accountId) {
+    auto req = this->pendingRequests.lock();
+
+    for (auto r : *req) {
+        if (r->account.accountId == accountId) {
+            return r->startedVerificationAt.elapsed();
+        }
+    }
+
+    return std::nullopt;
+}
+
+void ArgonState::killAuthAttempt(int accountId) {
+    // TODO: idk how to do this safely
 }
 
 void ArgonState::processStage1Response(PendingRequest* req, web::WebResponse* response) {

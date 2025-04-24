@@ -4,9 +4,11 @@
 #include "storage.hpp"
 #include "web.hpp"
 
+#include <asp/time/Duration.hpp>
 #include <Geode/Geode.hpp>
 
 using namespace geode::prelude;
+using namespace asp::time;
 
 namespace argon {
 
@@ -63,6 +65,15 @@ Result<> startAuthWithAccount(AccountData account, AuthCallback callback, AuthPr
     if (auto token = ArgonStorage::get().getAuthToken(account, argon.getServerUrl())) {
         callback(std::move(Ok(token.value())));
         return Ok();
+    }
+
+    // disallow multiple concurring auth requests for the same acc
+    if (auto dur = argon.isInProgress(account.accountId)) {
+        if (dur > Duration::fromMinutes(2)) {
+            argon.killAuthAttempt(account.accountId);
+        } else {
+            return Err("there is already an auth attempt in progress for this account");
+        }
     }
 
     GEODE_UNWRAP_INTO(auto task, startAuthInternal(account, "message", forceStrong));
