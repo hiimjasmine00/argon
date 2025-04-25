@@ -27,6 +27,7 @@ struct PendingRequest {
     web::WebListener stage1Listener;
     web::WebListener stage2Listener;
     web::WebListener stage3Listener;
+    asp::time::SystemTime startedAuthAt;
     asp::time::SystemTime startedVerificationAt;
 
     void callback(geode::Result<std::string>&& value);

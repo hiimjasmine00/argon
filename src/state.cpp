@@ -85,7 +85,6 @@ void ArgonState::initConfigLock() {
     if (!lockobj) {
         lockobj = CCMutex::create();
         gm->setUserObject(LOCK_KEY, lockobj);
-        return;
     }
 
     configLock = &lockobj->data();
@@ -110,6 +109,7 @@ void ArgonState::pushNewRequest(AuthCallback callback, AuthProgressCallback prog
         .progressCallback = std::move(progress),
         .account = std::move(account),
         .forceStrong = forceStrong,
+        .startedAuthAt = SystemTime::now(),
     };
 
     this->progress(preq, AuthProgress::RequestedChallenge);
@@ -183,7 +183,7 @@ std::optional<Duration> ArgonState::isInProgress(int accountId) {
 
     for (auto r : *req) {
         if (r->account.accountId == accountId) {
-            return r->startedVerificationAt.elapsed();
+            return r->startedAuthAt.elapsed();
         }
     }
 
@@ -191,6 +191,8 @@ std::optional<Duration> ArgonState::isInProgress(int accountId) {
 }
 
 void ArgonState::killAuthAttempt(int accountId) {
+    log::warn("(Argon) aborting auth attempt for ID {}, is argon stuck?", accountId);
+
     auto reqs = this->pendingRequests.lock();
 
     for (auto r : *reqs) {
