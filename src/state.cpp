@@ -7,6 +7,7 @@
 #include <matjson/std.hpp>
 #include <asp/time/sleep.hpp>
 #include <asp/data.hpp>
+#include "util.hpp"
 
 using namespace geode::prelude;
 using namespace asp::time;
@@ -76,28 +77,18 @@ void ArgonState::initConfigLock() {
 
     // note: this function is horrible and really has to be thread safe :)
 
-    static const std::string LOCK_KEY = "dankmeme.argon/_config_lock_v1_94c02415";
+    static const std::string LOCK_KEY = "dankmeme.argon/_config_lock_v2_25ea8834";
 
     auto gm = GameManager::get();
-    auto lockobj = gm->getUserObject(LOCK_KEY);
-    if (lockobj) {
-        // cast double -> u64 -> uintptr_t (nop unless 32-bit) -> Mutex*
-        uint64_t ptrval = asp::data::bit_cast<uint64_t>(static_cast<CCDouble*>(lockobj)->getValue());
-        configLock = reinterpret_cast<std::mutex*>(static_cast<uintptr_t>(ptrval));
+
+    auto lockobj = typeinfo_cast<CCMutex*>(gm->getUserObject(LOCK_KEY));
+    if (!lockobj) {
+        lockobj = CCMutex::create();
+        gm->setUserObject(LOCK_KEY, lockobj);
         return;
     }
 
-    // otherwise, initialize ourselves
-
-    // create the mutex on the heap and put it in the gamemanager so it lives
-    configLock = new std::mutex{};
-
-    lockobj = CCDouble::create(
-        // cast void* -> usize -> u64 (last cast due to 32-bit platforms) -> bit_cast to 64-bit double
-        asp::data::bit_cast<double>(static_cast<uint64_t>(reinterpret_cast<uintptr_t>(configLock)))
-    );
-
-    gm->setUserObject(LOCK_KEY, lockobj);
+    configLock = &lockobj->data();
 }
 
 std::string_view ArgonState::getServerUrl() const {
