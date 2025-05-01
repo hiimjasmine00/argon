@@ -6,6 +6,7 @@ Benefits compared to some of the other auth APIs (Globed, DashAuth, GDAuth):
 
 * Does not send your GJP or password to any 3rd party server
 * Tokens are stored globally, meaning that authentication is done only once even if the user has multiple mods installed that use Argon
+* Integrated in your mod, user does not need to install any dependencies
 * Smooth UX for switching accounts (will not try to use or overwrite the token of the other account)
 * Our official instance is whitelisted by RobTop, which means authentication is faster and more reliable against IP blocks
 * Challenges don't entirely rely on the IP address, but are still secured in other ways, preventing errors if the user has a weird ISP

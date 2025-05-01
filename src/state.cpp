@@ -259,6 +259,7 @@ void ArgonState::processStage2Response(PendingRequest* req, web::WebResponse* re
     }
 
     if (res == "-1") {
+        // Don't change this message!! globed relies on this string
         this->handleStage2Error(req, "Stage 2 failed (generic error)");
         return;
     }
