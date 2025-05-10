@@ -1,3 +1,7 @@
+# 1.1.1
+
+* Make library usable without precompiled headers
+
 # 1.1.0
 
 * Now return an error if a mod tries to perform auth multiple times at once with the same account

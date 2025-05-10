@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <Geode/loader/Event.hpp>
+
 using namespace geode::prelude;
 
 #ifdef GEODE_IS_WINDOWS

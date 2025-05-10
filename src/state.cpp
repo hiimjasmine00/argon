@@ -2,12 +2,13 @@
 
 #include "stages.hpp"
 #include "storage.hpp"
+#include "util.hpp"
 
+#include <Geode/binding/GameManager.hpp>
 #include <matjson/reflect.hpp>
 #include <matjson/std.hpp>
 #include <asp/time/sleep.hpp>
 #include <asp/data.hpp>
-#include "util.hpp"
 
 using namespace geode::prelude;
 using namespace asp::time;

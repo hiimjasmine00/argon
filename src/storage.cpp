@@ -1,4 +1,7 @@
 #include "storage.hpp"
+
+#include <Geode/loader/Dirs.hpp>
+#include <matjson.hpp>
 #include <asp/fs.hpp>
 
 using namespace geode::prelude;

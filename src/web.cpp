@@ -3,11 +3,14 @@
 #include "state.hpp"
 
 #include <Geode/loader/Loader.hpp>
+#include <Geode/loader/Mod.hpp>
 #include "external/ServerAPIEvents.hpp"
 
 using namespace geode::prelude;
 
 namespace argon::web {
+
+// TODO: reverse engineer the "encryption" and replace this all with geode base64
 
 static std::string base64Encode(const gd::string& data) {
     // trust me i did not want to use this but oh well
