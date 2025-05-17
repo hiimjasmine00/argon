@@ -12,6 +12,7 @@
 
 using namespace geode::prelude;
 using namespace asp::time;
+using namespace asp::data;
 
 namespace argon {
 
@@ -20,6 +21,20 @@ Task<void> sleepFor(auto duration) {
         asp::time::sleep(duration);
         return true;
     });
+}
+
+static CowString truncate(std::string_view s, size_t maxSize = 128) {
+    if (s.size() >= maxSize) {
+        // genius
+        std::string out{s.substr(0, maxSize)};
+        out.push_back('.');
+        out.push_back('.');
+        out.push_back('.');
+
+        return CowString::fromOwned(std::move(out));
+    } else {
+        return CowString::fromBorrowed(s);
+    }
 }
 
 void PendingRequest::callback(geode::Result<std::string>&& value) {
@@ -248,14 +263,23 @@ void ArgonState::processStage1Response(PendingRequest* req, web::WebResponse* re
 void ArgonState::processStage2Response(PendingRequest* req, web::WebResponse* response) {
     auto res = response->string().unwrapOrDefault();
     if (res.empty()) {
-        this->handleStage2Error(req, "Server did not send a response");
+        this->handleStage2Error(req, "GD server replied with an empty body");
         return;
     }
 
     if (!response->ok()) {
         log::warn("(Argon) Stage 2 request failed with code {}, dumping server response.", response->code());
         log::warn("{}", res);
-        this->handleStage2Error(req, fmt::format("Server responded with code {}", response->code()));
+
+        if (response->code() == -1) {
+            this->handleStage2Error(req, fmt::format("Error making a request to GD servers: {}", truncate(res).asBorrowed()));
+        } else {
+            this->handleStage2Error(
+                req,
+                fmt::format("GD server responded with error code {}: {}", response->code(), truncate(res).asBorrowed())
+            );
+        }
+
         return;
     }
 

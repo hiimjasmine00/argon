@@ -39,7 +39,11 @@ std::string getBaseServerUrl() {
         }
     }
 
-    // This was taken from the impostor mod :)
+    // This was taken from the impostor mod :) and altered
+
+#ifdef GEODE_IS_ANDROID
+    bool isAmazonStore = !((GJMoreGamesLayer* volatile)nullptr)->getMoreGamesList()->count();
+#endif
 
     // The addresses are pointing to "https://www.boomlings.com/database/getGJLevels21.php"
     // in the main game executable
@@ -55,10 +59,10 @@ std::string getBaseServerUrl() {
     originalUrl = (char*)(base::get() + 0x8516bf);
 #elif defined(GEODE_IS_ANDROID64)
     static_assert(GEODE_COMP_GD_VERSION == 22074, "Unsupported GD version");
-    originalUrl = (char*)(base::get() + 0xEA2988);
+    originalUrl = (char*)(base::get() + (isAmazonStore ? 0xea27f8 : 0xEA2988));
 #elif defined(GEODE_IS_ANDROID32)
     static_assert(GEODE_COMP_GD_VERSION == 22074, "Unsupported GD version");
-    originalUrl = (char*)(base::get() + 0x952E9E);
+    originalUrl = (char*)(base::get() + (isAmazonStore ? 0x952cce : 0x952E9E));
 #elif defined(GEODE_IS_IOS)
     static_assert(GEODE_COMP_GD_VERSION == 22074, "Unsupported GD version");
     originalUrl = (char*)(base::get() + 0x6af51a);

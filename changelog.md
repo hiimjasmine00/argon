@@ -1,3 +1,8 @@
+# 1.1.2
+
+* Slightly improve error messages
+* Fix issues on Amazon Store version of GD
+
 # 1.1.1
 
 * Make library usable without precompiled headers
