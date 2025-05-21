@@ -109,6 +109,14 @@ Result<> setServerUrl(std::string url) {
     return ArgonState::get().setServerUrl(std::move(url));
 }
 
+void setCertVerification(bool state) {
+    ArgonState::get().setCertVerification(true);
+}
+
+bool getCertVerification() {
+    return ArgonState::get().getCertVerification();
+}
+
 void initConfigLock() {
     ArgonState::get().initConfigLock();
 }

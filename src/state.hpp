@@ -38,8 +38,13 @@ public:
     geode::Result<> setServerUrl(std::string url);
     std::string_view getServerUrl() const;
     asp::Mutex<>::Guard lockServerUrl();
+
+    void setCertVerification(bool state);
+    bool getCertVerification() const;
+
     std::lock_guard<std::mutex> acquireConfigLock();
     void initConfigLock();
+
     std::optional<asp::time::Duration> isInProgress(int accountId);
     void killAuthAttempt(int accountId);
 
@@ -53,6 +58,7 @@ protected:
     friend class SingletonBase;
 
     asp::Mutex<> serverUrlMtx;
+    asp::AtomicBool certVerification = true;
     std::mutex* configLock = nullptr;
     std::string serverUrl;
     asp::Mutex<std::unordered_set<PendingRequest*>> pendingRequests;

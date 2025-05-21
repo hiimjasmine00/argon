@@ -38,6 +38,12 @@ namespace argon {
     // Set the URL of the used Argon server, not thread-safe.
     geode::Result<> setServerUrl(std::string url);
 
+    // Enable or disable SSL certificate verification, by default is enabled.
+    void setCertVerification(bool state);
+
+    // Get whether certificate verification is enabled
+    bool getCertVerification();
+
     // Initializes the config lock structure for interoperability between other mods using Argon.
     // Should be called from the main thread once the game has at least reached the loading screen
     // (what matters is that GameManager::init has been run.)

@@ -1,3 +1,8 @@
+# 1.1.3
+
+* Improve error messages further
+* Add a way to disable SSL certificate verification for web requests
+
 # 1.1.2
 
 * Slightly improve error messages

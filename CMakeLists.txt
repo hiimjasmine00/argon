@@ -9,7 +9,7 @@ else()
     set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
 endif()
 
-project(argon VERSION 1.1.2)
+project(argon VERSION 1.1.3)
 
 file(GLOB_RECURSE SOURCES
 	src/*.cpp

@@ -123,6 +123,7 @@ WebTask startStage1(const AccountData& account, std::string_view preferredMethod
 
     auto req = web::WebRequest()
         .userAgent(getUserAgent())
+        .certVerification(argon.getCertVerification())
         .timeout(std::chrono::seconds(10))
         .bodyJSON(payload)
         .post(fmt::format("{}/v1/challenge/start", serverUrl));
@@ -145,6 +146,7 @@ WebTask restartStage1(const AccountData& account, std::string_view preferredMeth
 
     auto req = web::WebRequest()
         .userAgent(getUserAgent())
+        .certVerification(argon.getCertVerification())
         .timeout(std::chrono::seconds(10))
         .bodyJSON(payload)
         .post(fmt::format("{}/v1/challenge/restart", serverUrl));
@@ -164,6 +166,7 @@ WebTask startStage2Message(const AccountData& account, std::string_view serverUr
 
     // Upload a message to the GD bot account
     auto req = web::WebRequest()
+        .certVerification(getCertVerification())
         .timeout(std::chrono::seconds(20))
         .bodyString(payload)
         .userAgent("")
@@ -185,6 +188,7 @@ WebTask stage2MessageCleanup(const AccountData& account, int id, std::string_vie
 
     // delete the message
     auto req = web::WebRequest()
+        .certVerification(getCertVerification())
         .timeout(std::chrono::seconds(20))
         .bodyString(payload)
         .userAgent("")
@@ -210,6 +214,7 @@ WebTask startStage3(const AccountData& account, uint32_t challengeId, std::strin
 
     auto req = web::WebRequest()
         .userAgent(getUserAgent())
+        .certVerification(argon.getCertVerification())
         .timeout(std::chrono::seconds(10))
         .bodyJSON(payload)
         .post(fmt::format("{}/v1/challenge/verify", serverUrl));
@@ -229,6 +234,7 @@ WebTask pollStage3(const AccountData& account, uint32_t challengeId, std::string
 
     auto req = web::WebRequest()
         .userAgent(getUserAgent())
+        .certVerification(argon.getCertVerification())
         .timeout(std::chrono::seconds(10))
         .bodyJSON(payload)
         .post(fmt::format("{}/v1/challenge/verifypoll", serverUrl));

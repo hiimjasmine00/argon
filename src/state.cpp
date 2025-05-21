@@ -80,6 +80,14 @@ asp::Mutex<>::Guard ArgonState::lockServerUrl() {
     return serverUrlMtx.lock();
 }
 
+void ArgonState::setCertVerification(bool state) {
+    this->certVerification = state;
+}
+
+bool ArgonState::getCertVerification() const {
+    return this->certVerification;
+}
+
 std::lock_guard<std::mutex> ArgonState::acquireConfigLock() {
     if (!configLock) {
         this->initConfigLock();
@@ -227,9 +235,18 @@ void ArgonState::processStage1Response(PendingRequest* req, web::WebResponse* re
     auto res = response->json();
 
     if (!res) {
+        auto str = response->string().unwrapOrDefault();
+
         log::warn("(Argon) Stage 1 request failed with code {}, server did not send a JSON, dumping server response.", response->code());
-        log::warn("{}", response->string().unwrapOrDefault());
-        this->handleStage1Error(req, fmt::format("Unknown server error ({})", response->code()));
+        log::warn("Response: {}", str);
+        log::warn("Curl (extra) error message: {}", response->errorMessage());
+
+        if (response->code() == -1) {
+            this->handleStage1Error(req, fmt::format("Unknown request error: ", truncate(str).asBorrowed()));
+        } else {
+            this->handleStage1Error(req, fmt::format("Unknown server error (code {}): {}", response->code(), truncate(str).asBorrowed()));
+        }
+
         return;
     }
 
@@ -299,9 +316,18 @@ void ArgonState::processStage3Response(PendingRequest* req, web::WebResponse* re
     auto res = response->json();
 
     if (!res) {
+        auto str = response->string().unwrapOrDefault();
+
         log::warn("(Argon) Stage 3 request failed with code {}, server did not send a JSON, dumping server response.", response->code());
-        log::warn("{}", response->string().unwrapOrDefault());
-        this->handleStage3Error(req, fmt::format("Unknown server error ({})", response->code()));
+        log::warn("Response: {}", str);
+        log::warn("Curl (extra) error message: {}", response->errorMessage());
+
+        if (response->code() == -1) {
+            this->handleStage3Error(req, fmt::format("Unknown request error: ", truncate(str).asBorrowed()));
+        } else {
+            this->handleStage3Error(req, fmt::format("Unknown server error (code {}): {}", response->code(), truncate(str).asBorrowed()));
+        }
+
         return;
     }
 
