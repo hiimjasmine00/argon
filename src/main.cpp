@@ -110,7 +110,7 @@ Result<> setServerUrl(std::string url) {
 }
 
 void setCertVerification(bool state) {
-    ArgonState::get().setCertVerification(true);
+    ArgonState::get().setCertVerification(state);
 }
 
 bool getCertVerification() {

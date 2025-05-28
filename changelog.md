@@ -1,3 +1,8 @@
+# 1.1.4
+
+* Fix `argon::setCertVerification(false)` not actually doing anything :p
+* Improve error messages (again!)
+
 # 1.1.3
 
 * Improve error messages further

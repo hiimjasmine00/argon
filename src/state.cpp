@@ -37,6 +37,46 @@ static CowString truncate(std::string_view s, size_t maxSize = 128) {
     }
 }
 
+static std::string handleApiError(web::WebResponse* response, std::string_view what) {
+    auto str = response->string().unwrapOrDefault();
+
+    log::warn("(Argon) {} failed with code {}, dumping server response.", what, response->code());
+    log::warn("Response: '{}'", str);
+    log::warn("Curl (extra) error message: '{}'", response->errorMessage());
+
+    if (response->code() == -1) {
+        // curl error, request did not even reach the server
+        std::string fullmsg = std::move(str);
+        auto& emsg = response->errorMessage();
+        if (!emsg.empty()) {
+            if (fullmsg.empty()) {
+                fullmsg = emsg;
+            } else {
+                fullmsg += fmt::format(" ({})", emsg);
+            }
+        }
+
+        if (fullmsg.empty()) {
+            fullmsg = "(unknown error, response and error buffer are empty)";
+        }
+
+        return fmt::format("Request error ({}): {}", what, truncate(fullmsg).asBorrowed());
+    } else {
+        auto resp = str;
+        if (resp.empty()) {
+            resp = "(no response body)";
+        }
+
+        // server error
+        return fmt::format("Server error ({}, code {}): {}", what, response->code(), truncate(resp).asBorrowed());
+    }
+}
+
+
+static std::string handleGDError(web::WebResponse* response, std::string_view what) {
+    return handleApiError(response, fmt::format("GD request ({})", what));
+}
+
 void PendingRequest::callback(geode::Result<std::string>&& value) {
     if (this->cancelled) {
         this->_callback(Err("Argon auth request was cancelled"));
@@ -235,18 +275,7 @@ void ArgonState::processStage1Response(PendingRequest* req, web::WebResponse* re
     auto res = response->json();
 
     if (!res) {
-        auto str = response->string().unwrapOrDefault();
-
-        log::warn("(Argon) Stage 1 request failed with code {}, server did not send a JSON, dumping server response.", response->code());
-        log::warn("Response: {}", str);
-        log::warn("Curl (extra) error message: {}", response->errorMessage());
-
-        if (response->code() == -1) {
-            this->handleStage1Error(req, fmt::format("Unknown request error: ", truncate(str).asBorrowed()));
-        } else {
-            this->handleStage1Error(req, fmt::format("Unknown server error (code {}): {}", response->code(), truncate(str).asBorrowed()));
-        }
-
+        this->handleStage1Error(req, handleApiError(response, "stage 1 request"));
         return;
     }
 
@@ -279,24 +308,8 @@ void ArgonState::processStage1Response(PendingRequest* req, web::WebResponse* re
 
 void ArgonState::processStage2Response(PendingRequest* req, web::WebResponse* response) {
     auto res = response->string().unwrapOrDefault();
-    if (res.empty()) {
-        this->handleStage2Error(req, "GD server replied with an empty body");
-        return;
-    }
-
-    if (!response->ok()) {
-        log::warn("(Argon) Stage 2 request failed with code {}, dumping server response.", response->code());
-        log::warn("{}", res);
-
-        if (response->code() == -1) {
-            this->handleStage2Error(req, fmt::format("Error making a request to GD servers: {}", truncate(res).asBorrowed()));
-        } else {
-            this->handleStage2Error(
-                req,
-                fmt::format("GD server responded with error code {}: {}", response->code(), truncate(res).asBorrowed())
-            );
-        }
-
+    if (res.empty() || !response->ok()) {
+        this->handleStage2Error(req, handleGDError(response, req->stage2ChosenMethod));
         return;
     }
 
@@ -316,17 +329,7 @@ void ArgonState::processStage3Response(PendingRequest* req, web::WebResponse* re
     auto res = response->json();
 
     if (!res) {
-        auto str = response->string().unwrapOrDefault();
-
-        log::warn("(Argon) Stage 3 request failed with code {}, server did not send a JSON, dumping server response.", response->code());
-        log::warn("Response: {}", str);
-        log::warn("Curl (extra) error message: {}", response->errorMessage());
-
-        if (response->code() == -1) {
-            this->handleStage3Error(req, fmt::format("Unknown request error: ", truncate(str).asBorrowed()));
-        } else {
-            this->handleStage3Error(req, fmt::format("Unknown server error (code {}): {}", response->code(), truncate(str).asBorrowed()));
-        }
+        this->handleStage3Error(req, handleApiError(response, "stage 3 request"));
 
         return;
     }
