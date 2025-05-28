@@ -60,15 +60,19 @@ static std::string handleApiError(web::WebResponse* response, std::string_view w
             fullmsg = "(unknown error, response and error buffer are empty)";
         }
 
-        return fmt::format("Request error ({}): {}", what, truncate(fullmsg).asBorrowed());
+        auto msg = truncate(fullmsg);
+
+        return fmt::format("Request error ({}): {}", what, msg.toBorrowed());
     } else {
+        // server error
+
         auto resp = str;
         if (resp.empty()) {
             resp = "(no response body)";
         }
 
-        // server error
-        return fmt::format("Server error ({}, code {}): {}", what, response->code(), truncate(resp).asBorrowed());
+        auto msg = truncate(resp);
+        return fmt::format("Server error ({}, code {}): {}", what, response->code(), msg.toBorrowed());
     }
 }
 

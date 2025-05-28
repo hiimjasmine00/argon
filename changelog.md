@@ -1,3 +1,7 @@
+# 1.1.5
+
+* Fix exception being thrown when error message is greater than 125 characters (oops)
+
 # 1.1.4
 
 * Fix `argon::setCertVerification(false)` not actually doing anything :p
