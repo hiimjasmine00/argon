@@ -1,3 +1,8 @@
+# 1.1.6
+
+* Fix builds without precompiled headers (#3)
+* Fix Debug builds on Windows (#3)
+
 # 1.1.5
 
 * Fix exception being thrown when error message is greater than 125 characters (oops)
