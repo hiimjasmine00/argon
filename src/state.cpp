@@ -243,7 +243,12 @@ PendingRequest* ArgonState::getRequestById(size_t id) {
 
 void ArgonState::cleanupRequest(PendingRequest* req) {
     this->pendingRequests.lock()->erase(req);
-    delete req;
+
+    // Delay this, some mods may capture stuff with non thread-safe destructors
+    // when invoking startAuth, thus this may crash when called on a thread
+    Loader::get()->queueInMainThread([req] {
+        delete req;
+    });
 }
 
 std::optional<Duration> ArgonState::isInProgress(int accountId) {

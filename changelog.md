@@ -1,3 +1,7 @@
+# 1.1.7
+
+* Fix crash when startAuth is invoked with a `Ref` in captures or anything else that's not thread safe to destruct
+
 # 1.1.6
 
 * Fix builds without precompiled headers (#3)
