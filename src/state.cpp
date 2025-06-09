@@ -5,6 +5,7 @@
 #include "util.hpp"
 
 #include <Geode/binding/GameManager.hpp>
+#include <Geode/loader/Loader.hpp>
 #include <matjson/reflect.hpp>
 #include <matjson/std.hpp>
 #include <asp/time/sleep.hpp>
