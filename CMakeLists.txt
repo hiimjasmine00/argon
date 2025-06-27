@@ -3,7 +3,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
-project(argon VERSION 1.1.7)
+project(argon VERSION 1.1.8)
 
 file(GLOB_RECURSE SOURCES
 	src/*.cpp
