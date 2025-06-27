@@ -6,7 +6,6 @@
 
 #include <Geode/binding/GameManager.hpp>
 #include <Geode/loader/Loader.hpp>
-#include <matjson/reflect.hpp>
 #include <matjson/std.hpp>
 #include <asp/time/sleep.hpp>
 #include <asp/data.hpp>
@@ -97,6 +96,43 @@ struct Stage1ResponseData {
     int challenge;
     std::string ident;
 };
+
+} // namespace argon
+
+template<>
+struct matjson::Serialize<argon::Stage1ResponseData> {
+    static Result<argon::Stage1ResponseData> fromJson(const Value& value) {
+        auto method = value["method"].asString();
+        auto id = value["id"].as<int>();
+        auto challengeId = value["challengeId"].as<uint32_t>();
+        auto challenge = value["challenge"].as<int>();
+        auto ident = value["ident"].asString();
+
+        if (!method || !id || !challengeId || !challenge || !ident) {
+            return Err("Malformed Stage1ResponseData: missing required fields");
+        }
+
+        return Ok(argon::Stage1ResponseData {
+            .method = std::move(method).unwrap(),
+            .id = std::move(id).unwrap(),
+            .challengeId = std::move(challengeId).unwrap(),
+            .challenge = std::move(challenge).unwrap(),
+            .ident = std::move(ident).unwrap()
+        });
+    }
+
+    static Value toJson(const argon::Stage1ResponseData& value) {
+        auto obj = Value::object();
+        obj["method"] = value.method;
+        obj["id"] = value.id;
+        obj["challengeId"] = value.challengeId;
+        obj["challenge"] = value.challenge;
+        obj["ident"] = value.ident;
+        return obj;
+    }
+};
+
+namespace argon {
 
 ArgonState::ArgonState() {
     (void) this->setServerUrl("https://argon.globed.dev").unwrap();
