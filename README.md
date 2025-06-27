@@ -18,9 +18,11 @@ Benefits compared to some of the other auth APIs (Globed, DashAuth, GDAuth):
 First, add Argon to the `CMakeLists.txt` of your mod:
 
 ```cmake
-CPMAddPackage("gh:GlobedGD/argon@1.1.6")
+CPMAddPackage("gh:GlobedGD/argon@1.1.8")
 target_link_libraries(${PROJECT_NAME} argon)
 ```
+
+*Note: argon might not compile on MSVC (Visual Studio), you might need Clang in order to build it.*
 
 Complete example of how to perform authentication:
 
