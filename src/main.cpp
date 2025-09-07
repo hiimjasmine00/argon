@@ -6,11 +6,65 @@
 
 #include <asp/time/Duration.hpp>
 #include <Geode/Geode.hpp>
+#include "external/ServerAPIEvents.hpp"
 
 using namespace geode::prelude;
 using namespace asp::time;
 
 namespace argon {
+
+std::string getBaseServerUrl() {
+    if (Loader::get()->isModLoaded("km7dev.server_api")) {
+        auto url = ServerAPIEvents::getCurrentServer().url;
+        if (!url.empty() && url != "NONE_REGISTERED") {
+            while (url.ends_with('/')) {
+                url.pop_back();
+            }
+
+            return url;
+        }
+    }
+
+    // This was taken from the impostor mod :) and altered
+
+#ifdef GEODE_IS_ANDROID
+    bool isAmazonStore = !((GJMoreGamesLayer* volatile)nullptr)->getMoreGamesList()->count();
+#endif
+
+    // The addresses are pointing to "https://www.boomlings.com/database/getGJLevels21.php"
+    // in the main game executable
+    char* originalUrl = nullptr;
+#ifdef GEODE_IS_WINDOWS
+    static_assert(GEODE_COMP_GD_VERSION == 22074, "Unsupported GD version");
+    originalUrl = (char*)(base::get() + 0x53ea48);
+#elif defined(GEODE_IS_ARM_MAC)
+    static_assert(GEODE_COMP_GD_VERSION == 22074, "Unsupported GD version");
+    originalUrl = (char*)(base::get() + 0x7749fb);
+#elif defined(GEODE_IS_INTEL_MAC)
+    static_assert(GEODE_COMP_GD_VERSION == 22074, "Unsupported GD version");
+    originalUrl = (char*)(base::get() + 0x8516bf);
+#elif defined(GEODE_IS_ANDROID64)
+    static_assert(GEODE_COMP_GD_VERSION == 22074, "Unsupported GD version");
+    originalUrl = (char*)(base::get() + (isAmazonStore ? 0xea27f8 : 0xEA2988));
+#elif defined(GEODE_IS_ANDROID32)
+    static_assert(GEODE_COMP_GD_VERSION == 22074, "Unsupported GD version");
+    originalUrl = (char*)(base::get() + (isAmazonStore ? 0x952cce : 0x952E9E));
+#elif defined(GEODE_IS_IOS)
+    static_assert(GEODE_COMP_GD_VERSION == 22074, "Unsupported GD version");
+    originalUrl = (char*)(base::get() + 0x6af51a);
+#else
+    static_assert(false, "Unsupported platform");
+#endif
+
+    std::string ret = originalUrl;
+    if(ret.size() > 34) ret = ret.substr(0, 34);
+
+    while (ret.ends_with('/')) {
+        ret.pop_back();
+    }
+
+    return ret;
+}
 
 Result<web::WebTask> startAuthInternal(const AccountData& account, std::string_view preferredMethod, bool forceStrong);
 
@@ -44,7 +98,7 @@ AccountData getGameAccountData() {
         .userId = userId,
         .username = std::move(username),
         .gjp2 = std::move(gjp),
-        .serverUrl = argon::web::getBaseServerUrl(),
+        .serverUrl = getBaseServerUrl(),
     };
 }
 

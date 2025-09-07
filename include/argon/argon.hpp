@@ -90,4 +90,8 @@ namespace argon {
     /* Troubleshooting */
 
     geode::Result<> startTroubleshooter(TroubleshootCallback callback);
+
+    // Gets the base URL of the Geometry Dash server used to send messages to.
+    // This is usually "https://www.boomlings.com/database".
+    std::string getBaseServerUrl();
 }

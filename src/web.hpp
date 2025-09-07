@@ -11,7 +11,6 @@ namespace argon::web {
     using WebProgress = geode::utils::web::WebProgress;
     using WebListener = geode::EventListener<geode::utils::web::WebTask>;
 
-    std::string getBaseServerUrl();
     std::string getUserAgent();
 
     WebTask startStage1(const AccountData& account, std::string_view preferredMethod, bool forceStrong = false);
