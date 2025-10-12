@@ -1,3 +1,15 @@
+# 1.2.0
+
+* Add new task-based API for obtaining auth tokens, thanks [camila314](https://github.com/camila314/)!
+
+# 1.1.9
+
+* Fix not building on MSVC (#4, fixes #2), thanks [Prevter](https://github.com/Prevter)!
+
+# 1.1.8
+
+* Hopefully fix local MacOS building
+
 # 1.1.7
 
 * Fix crash when startAuth is invoked with a `Ref` in captures or anything else that's not thread safe to destruct

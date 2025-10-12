@@ -18,11 +18,9 @@ Benefits compared to some of the other auth APIs (Globed, DashAuth, GDAuth):
 First, add Argon to the `CMakeLists.txt` of your mod:
 
 ```cmake
-CPMAddPackage("gh:GlobedGD/argon@1.1.8")
+CPMAddPackage("gh:GlobedGD/argon@1.2.0")
 target_link_libraries(${PROJECT_NAME} argon)
 ```
-
-*Note: argon might not compile on MSVC (Visual Studio), you might need Clang in order to build it.*
 
 Complete example of how to perform authentication:
 
@@ -62,6 +60,23 @@ $on_mod(Loaded) {
     if (!res) {
         log::warn("Failed to start auth attempt: {}", res.unwrapErr());
     }
+}
+```
+
+If you prefer to use tasks over callbacks, task API is available since 1.2.0:
+
+```cpp
+$on_mod(Loaded) {
+    $async() {
+        auto res = co_await argon::startAuth();
+
+        if (res.isOk()) {
+            auto token = std::move(res).unwrap();
+            log::debug("Token: {}", token);
+        } else {
+            log::warn("Auth failed: {}", res.unwrapErr());
+        }
+    };
 }
 ```
 
