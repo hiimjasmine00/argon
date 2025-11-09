@@ -1,3 +1,7 @@
+# 1.2.1
+
+* Add automatic troubleshooter for account issues (invalid credentials, sent message limit). Now instead of "generic error", users will see a better error message telling them how to fix the issue.
+
 # 1.2.0
 
 * Add new task-based API for obtaining auth tokens, thanks [camila314](https://github.com/camila314/)!
