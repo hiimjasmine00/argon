@@ -3,7 +3,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
-project(argon VERSION 1.2.0)
+project(argon VERSION 1.2.1)
 
 file(GLOB_RECURSE SOURCES
 	src/*.cpp
@@ -29,5 +29,5 @@ target_link_libraries(${PROJECT_NAME} geode-sdk)
 target_include_directories(${PROJECT_NAME} PUBLIC include)
 
 # Add asp
-CPMAddPackage("gh:dankmeme01/asp2#2e7e109")
+CPMAddPackage("gh:dankmeme01/asp2#0933f5f9")
 target_link_libraries(${PROJECT_NAME} asp)

@@ -79,6 +79,8 @@ protected:
     void handleSuccessfulAuth(PendingRequest* req, std::string authtoken);
     void waitAndRetryStage3(PendingRequest* req, int ms);
 
+    void troubleshootStage2Failure(PendingRequest* req);
+
 public:
     void handleStage2Error(PendingRequest* req, std::string error);
     void handleStage3Error(PendingRequest* req, std::string error);

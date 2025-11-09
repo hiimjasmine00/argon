@@ -180,6 +180,24 @@ WebTask startStage2Comment(const AccountData& account, std::string_view serverUr
     return {}; // TODO
 }
 
+WebTask startMessageLimitCheck(const AccountData& account, std::string_view serverUrl) {
+    auto payload = fmt::format(
+        "accountID={}&gjp2={}&gameVersion=22&binaryVersion=45"
+        "&secret=Wmfd2893gb7&count=50&page=7&getSent=1",
+        account.accountId, account.gjp2
+    );
+
+    // Obtain the sent message count
+    auto req = web::WebRequest()
+        .certVerification(getCertVerification())
+        .timeout(std::chrono::seconds(20))
+        .bodyString(payload)
+        .userAgent("")
+        .post(fmt::format("{}/getGJMessages20.php", serverUrl));
+
+    return std::move(req);
+}
+
 WebTask stage2MessageCleanup(const AccountData& account, int id, std::string_view serverUrl) {
     auto payload = fmt::format(
         "accountID={}&gjp2={}&gameVersion=22&binaryVersion=45"

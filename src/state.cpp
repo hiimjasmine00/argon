@@ -9,6 +9,7 @@
 #include <matjson/std.hpp>
 #include <asp/time/sleep.hpp>
 #include <asp/data.hpp>
+#include <asp/iter.hpp>
 
 using namespace geode::prelude;
 using namespace asp::time;
@@ -360,8 +361,7 @@ void ArgonState::processStage2Response(PendingRequest* req, web::WebResponse* re
     }
 
     if (res == "-1") {
-        // Don't change this message!! globed relies on this string
-        this->handleStage2Error(req, "Stage 2 failed (generic error)");
+        this->troubleshootStage2Failure(req);
         return;
     }
 
@@ -487,6 +487,39 @@ void ArgonState::waitAndRetryStage3(PendingRequest* req, int ms) {
     }(duration, req);
 
     req->stage3Listener.setFilter(std::move(task));
+}
+
+void ArgonState::troubleshootStage2Failure(PendingRequest* req) {
+    log::warn("(Argon) Stage 2 failed with method \"{}\", starting to troubleshoot..", req->stage2ChosenMethod);
+
+    web::startMessageLimitCheck(req->account, req->account.serverUrl).listen([this, req](web::WebResponse* res) {
+        auto str = res->string().unwrapOrDefault();
+
+        if (str.empty() || !res->ok()) {
+            this->handleStage2Error(req, handleGDError(res, "message limit check"));
+            return;
+        }
+
+        if (str == "-1") {
+            // invalid GD credentials
+            this->handleStage2Error(req, "Invalid account credentials, please try to Refresh Login in account settings");
+            return;
+        }
+
+        size_t msgCount = 0;
+        if (str != "-2") {
+            msgCount = asp::iter::split(str, '|').count();
+        }
+
+        if (msgCount == 50) {
+            this->handleStage2Error(req, "Sent message limit reached, please try deleting some sent messages");
+            return;
+        }
+
+        this->handleStage2Error(req, "Stage 2 failed due to unknown error, auth and message limit are OK");
+    }, [](auto&&) {}, [this, req] {
+        this->handleCancellation(req);
+    });
 }
 
 void ArgonState::handleStage2Error(PendingRequest* req, std::string error) {

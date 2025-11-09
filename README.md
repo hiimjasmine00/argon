@@ -11,14 +11,14 @@ Benefits compared to some of the other auth APIs (Globed, DashAuth, GDAuth):
 * Our official instance is whitelisted by RobTop, which means authentication is faster and more reliable against IP blocks
 * Challenges don't entirely rely on the IP address, but are still secured in other ways, preventing errors if the user has a weird ISP
 * Ability to retrieve user's username without making requests to the GD server (with just their token)
-* (TODO, not done yet) Automatic troubleshooter for figuring out the cause of auth issues (for example invalid session or too many sent messages)
+* Automatic troubleshooter for figuring out the cause of auth issues (for example invalid session or too many sent messages)
 
 ## Usage (client-side)
 
 First, add Argon to the `CMakeLists.txt` of your mod:
 
 ```cmake
-CPMAddPackage("gh:GlobedGD/argon@1.2.0")
+CPMAddPackage("gh:GlobedGD/argon@1.2.1")
 target_link_libraries(${PROJECT_NAME} argon)
 ```
 
