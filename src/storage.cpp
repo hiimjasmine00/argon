@@ -77,12 +77,14 @@ Result<> ArgonStorage::storeAuthToken(PendingRequest* req, std::string_view auth
     // parseConfigFile already verified for us that data["tokens"] will be valid
     auto& arr = data["tokens"].asArray().unwrap();
 
+    auto serverUrl = ArgonState::get().getServerUrl();
+
     for (auto& value : arr) {
         std::string url = value["url"].asString().unwrapOrDefault();
         int accountId = value["accid"].asInt().unwrapOrDefault();
         int userId = value["userid"].asInt().unwrapOrDefault();
 
-        if (url != ArgonState::get().getServerUrl()
+        if (url != serverUrl
             || accountId != req->account.accountId
             || userId != req->account.userId
         ) {
@@ -101,7 +103,7 @@ Result<> ArgonStorage::storeAuthToken(PendingRequest* req, std::string_view auth
 
     if (!insertedToken) {
         arr.push_back(matjson::makeObject({
-            {"url", ArgonState::get().getServerUrl()},
+            {"url", serverUrl},
             {"accid", req->account.accountId},
             {"userid", req->account.userId},
             {"name", req->account.username},

@@ -30,7 +30,6 @@ Complete example of how to perform authentication:
 
 using namespace geode::prelude;
 
-
 $on_mod(Loaded) {
     // Do note the authentication is asynchronous, do NOT pass anything in the lambda captures to these callbacks,
     // unless you are certain that object will continue to exist.
@@ -66,9 +65,10 @@ $on_mod(Loaded) {
 If you prefer to use tasks over callbacks, task API is available since 1.2.0:
 
 ```cpp
+#include <Geode/utils/coro.hpp>
 $on_mod(Loaded) {
-    $async() {
-        auto res = co_await argon::startAuth();
+    $async(task = argon::startAuth()) {
+        auto res = co_await task;
 
         if (res.isOk()) {
             auto token = std::move(res).unwrap();
@@ -79,6 +79,13 @@ $on_mod(Loaded) {
     };
 }
 ```
+
+**NOTE:** `argon::startAuth` is NOT thread-safe! This is why `auto res = co_await argon::startAuth();` here could be potentially problematic, but the example above is okay (the task is created in the main thread). If you do need to start authentication in another thread, please make sure to do the following:
+* Call `argon::initConfigLock` at least once **in the main thread**, for example in `$on_mod(Loaded)`
+* Call `argon::getGameAccountData()` **in the main thread** to get the user credentials and store them somewhere
+* Call `argon::startAuthWithAccount` in any thread you wish and pass the earlier obtained account data
+
+Since the version v1.3.0, to prevent crashes, argon is strict about this, and some functions will refuse to work when not used on the main thread. This is to prevent data races and crashes caused by unsafe usage.
 
 If running into token validation issues, tokens can be cleared to attempt authentication again:
 

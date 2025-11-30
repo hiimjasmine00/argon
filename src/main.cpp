@@ -6,11 +6,23 @@
 
 #include <asp/time/Duration.hpp>
 #include <Geode/Geode.hpp>
+#include <thread>
 
 using namespace geode::prelude;
 using namespace asp::time;
 
 namespace argon {
+
+static std::optional<std::thread::id> g_mainThreadId;
+
+static bool isMainThread() {
+    if (!g_mainThreadId) {
+        // try to be safe and not always return false
+        return geode::utils::thread::getName() == "Main";
+    }
+
+    return std::this_thread::get_id() == *g_mainThreadId;
+}
 
 Result<web::WebTask> startAuthInternal(const AccountData& account, std::string_view preferredMethod, bool forceStrong);
 
@@ -49,6 +61,10 @@ AccountData getGameAccountData() {
 }
 
 Result<> startAuth(AuthCallback callback, AuthProgressCallback progress, bool forceStrong) {
+    if (!isMainThread()) {
+        return Err("startAuth must be called from the main thread");
+    }
+
     auto data = getGameAccountData();
     if (data.accountId <= 0 || data.userId <= 0) {
         return Err("Not logged into a Geometry Dash account");
@@ -69,10 +85,15 @@ AuthLoginTask startAuthWithAccount(AccountData account, bool forceStrong) {
 AuthLoginTask startAuth(bool forceStrong) {
     auto [task, post, prog, cancel] = AuthLoginTask::spawn();
 
+    if (!isMainThread()) {
+        post(Err("startAuth must be called from the main thread"));
+        return task;
+    }
+
     auto data = getGameAccountData();
     if (data.accountId <= 0 || data.userId <= 0) {
-        Result<std::string> err = Err("Not logged into a Geometry Dash account");
         post(Err("Not logged into a Geometry Dash account"));
+        return task;
     }
 
     if (auto err = startAuthWithAccount(data, post, prog, forceStrong).err())
@@ -83,7 +104,10 @@ AuthLoginTask startAuth(bool forceStrong) {
 
 Result<> startAuthWithAccount(AccountData account, AuthCallback callback, AuthProgressCallback progress, bool forceStrong) {
     auto& argon = ArgonState::get();
-    auto _ = argon.lockServerUrl();
+
+    if (!isMainThread() && !argon.isConfigLockInitialized()) {
+        return Err("startAuthWithAccount is called not from the main thread and initConfigLock was never called, cannot proceed due to risk of data races");
+    }
 
     // use cached token if possible
     if (auto token = ArgonStorage::get().getAuthToken(account, argon.getServerUrl())) {
@@ -133,6 +157,10 @@ Result<> setServerUrl(std::string url) {
     return ArgonState::get().setServerUrl(std::move(url));
 }
 
+std::string getServerUrl() {
+    return ArgonState::get().getServerUrl();
+}
+
 void setCertVerification(bool state) {
     ArgonState::get().setCertVerification(state);
 }
@@ -142,7 +170,15 @@ bool getCertVerification() {
 }
 
 void initConfigLock() {
+    if (!isMainThread()) {
+        throw std::runtime_error("initConfigLock must be called from the main thread");
+    }
+
     ArgonState::get().initConfigLock();
+}
+
+bool isConfigLockInitialized() {
+    return ArgonState::get().isConfigLockInitialized();
 }
 
 void clearAllTokens() {
@@ -159,6 +195,10 @@ void clearToken(int accountId) {
 
 void clearToken(const AccountData& account) {
     clearToken(account.accountId);
+}
+
+$on_mod(Loaded) {
+    g_mainThreadId = std::this_thread::get_id();
 }
 
 }

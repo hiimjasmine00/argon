@@ -1,3 +1,10 @@
+# 1.3.0
+
+* Enforce strict thread safety, argon will now return errors in some functions when not invoked from main thread. See README for more details.
+* Fix some internal thread safety bugs
+* Fix a bug in task API that would start auth even if not logged into an account
+* Include the mod version in telemetry
+
 # 1.2.1
 
 * Add automatic troubleshooter for account issues (invalid credentials, sent message limit). Now instead of "generic error", users will see a better error message telling them how to fix the issue.

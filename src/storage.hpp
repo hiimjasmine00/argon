@@ -4,17 +4,19 @@
 #include "state.hpp"
 
 namespace argon {
-    class ArgonStorage : public SingletonBase<ArgonStorage> {
-        friend class SingletonBase;
-        ArgonStorage();
 
-    public:
-        geode::Result<> storeAuthToken(PendingRequest* req, std::string_view authtoken);
-        std::optional<std::string> getAuthToken(const AccountData& account, std::string_view serverUrl);
+class ArgonStorage : public SingletonBase<ArgonStorage> {
+    friend class SingletonBase;
+    ArgonStorage();
 
-        void clearTokens(int accountId);
-        void clearAllTokens();
+public:
+    geode::Result<> storeAuthToken(PendingRequest* req, std::string_view authtoken);
+    std::optional<std::string> getAuthToken(const AccountData& account, std::string_view serverUrl);
 
-    private:
-    };
+    void clearTokens(int accountId);
+    void clearAllTokens();
+
+private:
+};
+
 } // namespace argon

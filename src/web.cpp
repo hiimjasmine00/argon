@@ -109,16 +109,20 @@ std::string getUserAgent() {
             Loader::get()->getGameVersion());
 }
 
+static std::string getReqMod() {
+    auto mod = Mod::get();
+    return fmt::format("{}/{}", mod->getID(), mod->getVersion().toVString());
+}
+
 WebTask startStage1(const AccountData& account, std::string_view preferredMethod, bool forceStrong) {
     auto& argon = ArgonState::get();
-    std::string_view serverUrl = argon.getServerUrl();
 
     auto payload = matjson::makeObject({
         {"accountId", account.accountId},
         {"userId", account.userId},
         {"username", account.username},
         {"forceStrong", forceStrong},
-        {"reqMod", Mod::get()->getID()},
+        {"reqMod", getReqMod()},
         {"preferred", preferredMethod}
     });
 
@@ -127,21 +131,20 @@ WebTask startStage1(const AccountData& account, std::string_view preferredMethod
         .certVerification(argon.getCertVerification())
         .timeout(std::chrono::seconds(10))
         .bodyJSON(payload)
-        .post(fmt::format("{}/v1/challenge/start", serverUrl));
+        .post(argon.makeUrl("v1/challenge/start"));
 
     return std::move(req);
 }
 
 WebTask restartStage1(const AccountData& account, std::string_view preferredMethod, bool forceStrong) {
     auto& argon = ArgonState::get();
-    std::string_view serverUrl = argon.getServerUrl();
 
     auto payload = matjson::makeObject({
         {"accountId", account.accountId},
         {"userId", account.userId},
         {"username", account.username},
         {"forceStrong", forceStrong},
-        {"reqMod", Mod::get()->getID()},
+        {"reqMod", getReqMod()},
         {"preferred", preferredMethod}
     });
 
@@ -150,7 +153,7 @@ WebTask restartStage1(const AccountData& account, std::string_view preferredMeth
         .certVerification(argon.getCertVerification())
         .timeout(std::chrono::seconds(10))
         .bodyJSON(payload)
-        .post(fmt::format("{}/v1/challenge/restart", serverUrl));
+        .post(argon.makeUrl("v1/challenge/restart"));
 
     return std::move(req);
 }
@@ -223,7 +226,6 @@ WebTask stage2CommentCleanup(const AccountData& account, int id, std::string_vie
 
 WebTask startStage3(const AccountData& account, uint32_t challengeId, std::string_view solution) {
     auto& argon = ArgonState::get();
-    std::string_view serverUrl = argon.getServerUrl();
 
     auto payload = matjson::makeObject({
         {"challengeId", challengeId},
@@ -236,14 +238,13 @@ WebTask startStage3(const AccountData& account, uint32_t challengeId, std::strin
         .certVerification(argon.getCertVerification())
         .timeout(std::chrono::seconds(10))
         .bodyJSON(payload)
-        .post(fmt::format("{}/v1/challenge/verify", serverUrl));
+        .post(argon.makeUrl("v1/challenge/verify"));
 
     return std::move(req);
 }
 
 WebTask pollStage3(const AccountData& account, uint32_t challengeId, std::string_view solution) {
     auto& argon = ArgonState::get();
-    std::string_view serverUrl = argon.getServerUrl();
 
     auto payload = matjson::makeObject({
         {"challengeId", challengeId},
@@ -256,9 +257,10 @@ WebTask pollStage3(const AccountData& account, uint32_t challengeId, std::string
         .certVerification(argon.getCertVerification())
         .timeout(std::chrono::seconds(10))
         .bodyJSON(payload)
-        .post(fmt::format("{}/v1/challenge/verifypoll", serverUrl));
+        .post(argon.makeUrl("v1/challenge/verifypoll"));
 
     return std::move(req);
 }
 
 }
+

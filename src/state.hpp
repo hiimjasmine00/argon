@@ -36,14 +36,15 @@ struct PendingRequest {
 class ArgonState : public SingletonBase<ArgonState> {
 public:
     geode::Result<> setServerUrl(std::string url);
-    std::string_view getServerUrl() const;
-    asp::Mutex<>::Guard lockServerUrl();
+    std::string getServerUrl() const;
+    std::string makeUrl(std::string_view suffix) const;
 
     void setCertVerification(bool state);
     bool getCertVerification() const;
 
     std::lock_guard<std::mutex> acquireConfigLock();
     void initConfigLock();
+    bool isConfigLockInitialized();
 
     std::optional<asp::time::Duration> isInProgress(int accountId);
     void killAuthAttempt(int accountId);
@@ -57,10 +58,9 @@ public:
 protected:
     friend class SingletonBase;
 
-    asp::Mutex<> serverUrlMtx;
+    asp::Mutex<std::string> serverUrl;
     asp::AtomicBool certVerification = true;
-    std::mutex* configLock = nullptr;
-    std::string serverUrl;
+    std::atomic<std::mutex*> configLock = nullptr;
     asp::Mutex<std::unordered_set<PendingRequest*>> pendingRequests;
     size_t nextReqId = 1;
 

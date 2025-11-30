@@ -14,6 +14,7 @@
 using namespace geode::prelude;
 using namespace asp::time;
 using namespace asp::data;
+using enum std::memory_order;
 
 namespace argon {
 
@@ -142,24 +143,20 @@ ArgonState::ArgonState() {
 ArgonState::~ArgonState() {}
 
 Result<> ArgonState::setServerUrl(std::string url) {
-    auto _lock = serverUrlMtx.lock();
+    auto lock = this->serverUrl.lock();
 
     if (pendingRequests.lock()->size()) {
         return Err("Cannot change server URL while there are pending requests");
     }
 
-    serverUrl = std::move(url);
+    *lock = std::move(url);
 
     // Strip trailing slash
-    if (!serverUrl.empty() && serverUrl.back() == '/') {
-        serverUrl.pop_back();
+    while (!lock->empty() && lock->back() == '/') {
+        lock->pop_back();
     }
 
     return Ok();
-}
-
-asp::Mutex<>::Guard ArgonState::lockServerUrl() {
-    return serverUrlMtx.lock();
 }
 
 void ArgonState::setCertVerification(bool state) {
@@ -171,15 +168,18 @@ bool ArgonState::getCertVerification() const {
 }
 
 std::lock_guard<std::mutex> ArgonState::acquireConfigLock() {
-    if (!configLock) {
+    auto ptr = configLock.load(acquire);
+
+    if (!ptr) {
         this->initConfigLock();
+        ptr = configLock.load(acquire);
     }
 
-    return std::lock_guard(*configLock);
+    return std::lock_guard(*ptr);
 }
 
 void ArgonState::initConfigLock() {
-    if (configLock) return;
+    if (configLock.load(acquire)) return;
 
     // note: this function is horrible and really has to be thread safe :)
 
@@ -193,11 +193,28 @@ void ArgonState::initConfigLock() {
         gm->setUserObject(LOCK_KEY, lockobj);
     }
 
-    configLock = &lockobj->data();
+    configLock.store(&lockobj->data(), release);
 }
 
-std::string_view ArgonState::getServerUrl() const {
-    return serverUrl;
+bool ArgonState::isConfigLockInitialized() {
+    return configLock.load(acquire) != nullptr;
+}
+
+std::string ArgonState::getServerUrl() const {
+    return *this->serverUrl.lock();
+}
+
+std::string ArgonState::makeUrl(std::string_view suffix) const {
+    auto out = this->getServerUrl();
+
+    if (!suffix.empty()) {
+        if (suffix.front() != '/') {
+            out.push_back('/');
+        }
+        out.append(suffix);
+    }
+
+    return out;
 }
 
 void ArgonState::progress(PendingRequest* req, AuthProgress progress) {

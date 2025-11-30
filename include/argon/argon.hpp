@@ -29,7 +29,6 @@ namespace argon {
     std::string authProgressToString(AuthProgress progress);
 
     using AuthCallback = std::function<void(geode::Result<std::string>)>;
-    using TroubleshootCallback = std::function<void(geode::Result<>)>;
     using AuthProgressCallback = std::function<void(AuthProgress)>;
     using AuthLoginTask = geode::Task<geode::Result<std::string>, AuthProgress>;
 
@@ -38,6 +37,9 @@ namespace argon {
 
     // Set the URL of the used Argon server, not thread-safe.
     geode::Result<> setServerUrl(std::string url);
+
+    // Get the URL of the used Argon server, thread-safe.
+    std::string getServerUrl();
 
     // Enable or disable SSL certificate verification, by default is enabled.
     void setCertVerification(bool state);
@@ -50,15 +52,16 @@ namespace argon {
     // (what matters is that GameManager::init has been run.)
     void initConfigLock();
 
+    // Returns whether the config lock has been initialized
+    bool isConfigLockInitialized();
+
     /* Starting auth */
 
     // Start authentication with the current user account.
     // `callback` is called with the authtoken once auth is complete, or with an error if one happens. It should always be called.
     // `progress` is an optional progress callback that will be called whenever the auth process reaches the next stage.
     //
-    // **NOTE**: this function is not thread-safe. This function does not block, but if you still want to start auth on another thread,
-    // you should first collect user's credentials with `argon::getGameAccountData` on main thread, and then call `argon::startAuthWithAccount` on your thread.
-    // Additionally, make sure to call `argon::initConfigLock` at least once **on the main thread** before starting the auth attempt.
+    // **NOTE**: this function is not thread-safe, see README for details.
     geode::Result<> startAuth(AuthCallback callback, AuthProgressCallback progress = {}, bool forceStrong = false);
 
     // Start authentication with given user credentials.
@@ -66,20 +69,16 @@ namespace argon {
     // `progress` is an optional progress callback that will be called whenever the auth process reaches the next stage.
     //
     // This function can be safely called from any thread, and it won't block the thread.
-    // **NOTE**: If calling not from main thread, make sure to call `argon::initConfigLock` at least once in your mod,
-    // on the main thread and before calling this function. `$on_mod(Loaded)` can be a good place if this is not an early-load mod.
+    // **NOTE**: not thread-safe if the config lock wasn't initialized yet, see README for details.
     geode::Result<> startAuthWithAccount(AccountData account, AuthCallback callback, AuthProgressCallback progress = {}, bool forceStrong = false);
 
     // Wrapper around startAuthWithAccount that returns an awaitable Task
     // This function can be safely called from any thread, and it won't block the thread.
-    // **NOTE**: If calling not from main thread, make sure to call `argon::initConfigLock` at least once in your mod,
-    // on the main thread and before calling this function. `$on_mod(Loaded)` can be a good place if this is not an early-load mod.
+    // **NOTE**: not thread-safe if the config lock wasn't initialized yet, see README for details.
     AuthLoginTask startAuthWithAccount(AccountData account, bool forceStrong = false);
 
     // Wrapper around startAuth that returns an awaitable Task
-    // **NOTE**: this function is not thread-safe. This function does not block, but if you still want to start auth on another thread,
-    // you should first collect user's credentials with `argon::getGameAccountData` on main thread, and then call `argon::startAuthWithAccount` on your thread.
-    // Additionally, make sure to call `argon::initConfigLock` at least once **on the main thread** before starting the auth attempt.
+    // **NOTE**: this function is not thread-safe, see README for details.
     AuthLoginTask startAuth(bool forceStrong = false);
 
     /* Managing tokens */
@@ -99,8 +98,4 @@ namespace argon {
     // Clears all authtokens from the storage for this account.
     // Only tokens generated with the same server URL are deleted. Thread-safe.
     void clearToken(const AccountData& account);
-
-    /* Troubleshooting */
-
-    geode::Result<> startTroubleshooter(TroubleshootCallback callback);
 }
