@@ -170,6 +170,11 @@ bool getCertVerification() {
 }
 
 void initConfigLock() {
+    auto& argon = ArgonState::get();
+    if (argon.isConfigLockInitialized()) {
+        return;
+    }
+
     if (!isMainThread()) {
         throw std::runtime_error("initConfigLock must be called from the main thread");
     }
