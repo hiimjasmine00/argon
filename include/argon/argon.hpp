@@ -32,10 +32,13 @@ namespace argon {
     using AuthProgressCallback = std::function<void(AuthProgress)>;
     using AuthLoginTask = geode::Task<geode::Result<std::string>, AuthProgress>;
 
-    // Collects the account data of the currently logged in user. Not thread-safe.
+    // Collects the account data of the currently logged in user. Call only on main thread.
     AccountData getGameAccountData();
 
-    // Set the URL of the used Argon server, not thread-safe.
+    // Returns whether the user is signed into a Geometry Dash account. Call only on main thread.
+    bool signedIn();
+
+    // Set the URL of the used Argon server, thread-safe.
     geode::Result<> setServerUrl(std::string url);
 
     // Get the URL of the used Argon server, thread-safe.
@@ -98,4 +101,12 @@ namespace argon {
     // Clears all authtokens from the storage for this account.
     // Only tokens generated with the same server URL are deleted. Thread-safe.
     void clearToken(const AccountData& account);
+
+    // Checks if there's an authtoken stored for the currently used GD account.
+    // Not thread-safe, for thread safety use `(const AccountData&)` overload.
+    bool hasToken();
+
+    // Checks if there's an authtoken stored for this account, thread-safe.
+    // If this returns true, all auth functions will likely immediately return success.
+    bool hasToken(const AccountData& account);
 }

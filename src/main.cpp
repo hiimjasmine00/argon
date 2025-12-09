@@ -60,6 +60,10 @@ AccountData getGameAccountData() {
     };
 }
 
+bool signedIn() {
+    return GJAccountManager::get()->m_accountID > 0;
+}
+
 Result<> startAuth(AuthCallback callback, AuthProgressCallback progress, bool forceStrong) {
     if (!isMainThread()) {
         return Err("startAuth must be called from the main thread");
@@ -200,6 +204,14 @@ void clearToken(int accountId) {
 
 void clearToken(const AccountData& account) {
     clearToken(account.accountId);
+}
+
+bool hasToken() {
+    return hasToken(getGameAccountData());
+}
+
+bool hasToken(const AccountData& account) {
+    return ArgonStorage::get().hasAuthToken(account, getServerUrl());
 }
 
 $on_mod(Loaded) {

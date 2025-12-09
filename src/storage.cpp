@@ -157,6 +157,10 @@ std::optional<std::string> ArgonStorage::getAuthToken(const AccountData& account
     return std::nullopt;
 }
 
+bool ArgonStorage::hasAuthToken(const AccountData& account, std::string_view serverUrl) {
+    return this->getAuthToken(account, serverUrl).has_value();
+}
+
 void ArgonStorage::clearTokens(int accountId) {
     auto _lock = ArgonState::get().acquireConfigLock();
 

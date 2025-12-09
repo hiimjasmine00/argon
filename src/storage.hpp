@@ -12,6 +12,7 @@ class ArgonStorage : public SingletonBase<ArgonStorage> {
 public:
     geode::Result<> storeAuthToken(PendingRequest* req, std::string_view authtoken);
     std::optional<std::string> getAuthToken(const AccountData& account, std::string_view serverUrl);
+    bool hasAuthToken(const AccountData& account, std::string_view serverUrl);
 
     void clearTokens(int accountId);
     void clearAllTokens();

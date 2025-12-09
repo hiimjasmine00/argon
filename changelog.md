@@ -1,3 +1,7 @@
+# 1.3.1
+
+* Add some helper functions to check if the user is signed into a GD account and if any auth tokens are already cached
+
 # 1.3.0
 
 * Enforce strict thread safety, argon will now return errors in some functions when not invoked from main thread. See README for more details.
