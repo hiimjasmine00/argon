@@ -80,7 +80,7 @@ Result<> startAuth(AuthCallback callback, AuthProgressCallback progress, bool fo
 AuthLoginTask startAuthWithAccount(AccountData account, bool forceStrong) {
     auto [task, post, prog, cancel] = AuthLoginTask::spawn();
 
-    if (auto err = startAuthWithAccount(account, post, prog, forceStrong).err())
+    if (auto err = startAuthWithAccount(std::move(account), post, std::move(prog), forceStrong).err())
         post(Err(*err));
 
     return task;
@@ -100,7 +100,7 @@ AuthLoginTask startAuth(bool forceStrong) {
         return task;
     }
 
-    if (auto err = startAuthWithAccount(data, post, prog, forceStrong).err())
+    if (auto err = startAuthWithAccount(std::move(data), post, std::move(prog), forceStrong).err())
         post(Err(*err));
 
     return task;
