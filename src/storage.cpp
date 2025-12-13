@@ -44,9 +44,9 @@ static matjson::Value loadOrCreateConfig() {
     matjson::Value data;
 
     if (asp::fs::isFile(storagePath)) {
-        auto res = asp::fs::readToString(storagePath);
+        auto res = geode::utils::file::readString(storagePath);
         if (!res) {
-            log::warn("(Argon) failed to read argon data file: {}", res.unwrapErr().message());
+            log::warn("(Argon) failed to read argon data file: {}", res.unwrapErr());
             data = makeNewConfigFile();
         } else {
             auto res2 = parseConfigFile(res.unwrap());
@@ -112,9 +112,9 @@ Result<> ArgonStorage::storeAuthToken(PendingRequest* req, std::string_view auth
         }));
     }
 
-    auto res = asp::fs::write(storagePath, data.dump(matjson::NO_INDENTATION));
+    auto res = geode::utils::file::writeToJson(storagePath, data);
     if (!res) {
-        return Err(fmt::format("failed to save argon data file: {}", res.unwrapErr().message()));
+        return Err(fmt::format("failed to save argon data file: {}", res.unwrapErr()));
     }
 
     return Ok();
@@ -177,9 +177,9 @@ void ArgonStorage::clearTokens(int accountId) {
         }
     }
 
-    auto res = asp::fs::write(storagePath, data.dump(matjson::NO_INDENTATION));
+    auto res = geode::utils::file::writeToJson(storagePath, data);
     if (!res) {
-        log::warn("(Argon) failed to save argon data file: {}", res.unwrapErr().message());
+        log::warn("(Argon) failed to save argon data file: {}", res.unwrapErr());
     }
 }
 
@@ -189,9 +189,9 @@ void ArgonStorage::clearAllTokens() {
     auto data = loadOrCreateConfig();
     data["tokens"] = matjson::Value::array();
 
-    auto res = asp::fs::write(storagePath, data.dump(matjson::NO_INDENTATION));
+    auto res = geode::utils::file::writeToJson(storagePath, data);
     if (!res) {
-        log::warn("(Argon) failed to save argon data file: {}", res.unwrapErr().message());
+        log::warn("(Argon) failed to save argon data file: {}", res.unwrapErr());
     }
 }
 
