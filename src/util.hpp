@@ -4,6 +4,28 @@
 #include <utility>
 #include <mutex>
 
+namespace argon {
+
+template <typename Derived>
+class SingletonBase {
+public:
+    // no copy
+    SingletonBase(const SingletonBase&) = delete;
+    SingletonBase& operator=(const SingletonBase&) = delete;
+    // no move
+    SingletonBase(SingletonBase&&) = delete;
+    SingletonBase& operator=(SingletonBase&&) = delete;
+
+    static Derived& get() {
+        static Derived instance;
+
+        return instance;
+    }
+
+protected:
+    SingletonBase() {}
+};
+
 // ccobject that stores a custom struct
 template <typename T>
 class CCData : public cocos2d::CCObject {
@@ -36,3 +58,5 @@ public:
 };
 
 using CCMutex = CCData<std::mutex>;
+
+}

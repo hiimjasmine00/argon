@@ -2,16 +2,20 @@
 
 #include <Geode/Result.hpp>
 #include <Geode/utils/web.hpp>
+#include <Geode/utils/function.hpp>
 #include <string>
-#include <functional>
 
 namespace argon {
     struct AccountData {
-        int accountId;
-        int userId;
+        int accountId = 0;
+        int userId = 0;
         std::string username;
         std::string gjp2;
         std::string serverUrl;
+
+        bool valid() const {
+            return accountId > 0 && userId > 0 && !username.empty();
+        }
     };
 
     enum class AuthProgress {
@@ -26,11 +30,7 @@ namespace argon {
 
     // Converts the `AuthProgress` enum to a human readable string,
     // e.g. "Requesting challenge", "Solving challenge"
-    std::string authProgressToString(AuthProgress progress);
-
-    using AuthCallback = std::function<void(geode::Result<std::string>)>;
-    using AuthProgressCallback = std::function<void(AuthProgress)>;
-    using AuthLoginTask = geode::Task<geode::Result<std::string>, AuthProgress>;
+    std::string_view authProgressToString(AuthProgress progress);
 
     // Collects the account data of the currently logged in user. Call only on main thread.
     AccountData getGameAccountData();
@@ -50,39 +50,23 @@ namespace argon {
     // Get whether certificate verification is enabled
     bool getCertVerification();
 
-    // Initializes the config lock structure for interoperability between other mods using Argon.
-    // Should be called from the main thread once the game has at least reached the loading screen
-    // (what matters is that GameManager::init has been run.)
-    void initConfigLock();
-
-    // Returns whether the config lock has been initialized
-    bool isConfigLockInitialized();
-
     /* Starting auth */
 
-    // Start authentication with the current user account.
-    // `callback` is called with the authtoken once auth is complete, or with an error if one happens. It should always be called.
-    // `progress` is an optional progress callback that will be called whenever the auth process reaches the next stage.
-    //
-    // **NOTE**: this function is not thread-safe, see README for details.
-    geode::Result<> startAuth(AuthCallback callback, AuthProgressCallback progress = {}, bool forceStrong = false);
+    using AuthProgressCallback = geode::Function<void(AuthProgress)>;
+    using AuthFuture = arc::Future<geode::Result<std::string>>;
 
-    // Start authentication with given user credentials.
-    // `callback` is called with the authtoken once auth is complete, or with an error if one happens. It should always be called.
-    // `progress` is an optional progress callback that will be called whenever the auth process reaches the next stage.
-    //
-    // This function can be safely called from any thread, and it won't block the thread.
-    // **NOTE**: not thread-safe if the config lock wasn't initialized yet, see README for details.
-    geode::Result<> startAuthWithAccount(AccountData account, AuthCallback callback, AuthProgressCallback progress = {}, bool forceStrong = false);
+    struct AuthOptions  {
+        AuthProgressCallback progress;
+        AccountData account;
+        bool forceStrong = false;
+    };
 
-    // Wrapper around startAuthWithAccount that returns an awaitable Task
-    // This function can be safely called from any thread, and it won't block the thread.
-    // **NOTE**: not thread-safe if the config lock wasn't initialized yet, see README for details.
-    AuthLoginTask startAuthWithAccount(AccountData account, bool forceStrong = false);
+    // Returns a future that will start authentication and return the authtoken once completed.
+    // Shorthand for `startAuth({ .account = data })`
+    AuthFuture startAuth(AccountData data = getGameAccountData());
 
-    // Wrapper around startAuth that returns an awaitable Task
-    // **NOTE**: this function is not thread-safe, see README for details.
-    AuthLoginTask startAuth(bool forceStrong = false);
+    // Returns a future that will start authentication and return the authtoken once completed.
+    AuthFuture startAuth(AuthOptions options);
 
     /* Managing tokens */
 

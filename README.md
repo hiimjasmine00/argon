@@ -18,11 +18,11 @@ Benefits compared to some of the other auth APIs (Globed, DashAuth, GDAuth):
 First, add Argon to the `CMakeLists.txt` of your mod:
 
 ```cmake
-CPMAddPackage("gh:GlobedGD/argon@1.3.1")
+CPMAddPackage("gh:GlobedGD/argon@1.4.0")
 target_link_libraries(${PROJECT_NAME} argon)
 ```
 
-Complete example of how to perform authentication:
+Auth is performed via the `argon::startAuth` function, which returns a future that resolves to a `Result<std::string>` with the user's token:
 
 ```cpp
 #include <argon/argon.hpp>
@@ -30,64 +30,50 @@ Complete example of how to perform authentication:
 
 using namespace geode::prelude;
 
-$on_mod(Loaded) {
-    // Do note the authentication is asynchronous, do NOT pass anything in the lambda captures to these callbacks,
-    // unless you are certain that object will continue to exist.
+struct MyLayer : public CCLayer {
+    async::TaskHolder<Result<std::string>> m_listener;
 
-    auto res = argon::startAuth([](Result<std::string> res) {
-        // This callback is called on the main thread once the authentication completes.
-        // Note that if the authtoken is already stored in user's cache,
-        // this function will be called immediately!
-
-        if (!res) {
-            log::warn("Auth failed: {}", res.unwrapErr());
-            return;
-        }
-
-        auto token = std::move(res).unwrap();
-
-        // Now you have an authtoken that you can use to verify the user!
-        // Send this to your mod's server, which should verify it with the Argon server to ensure it is valid.
-
-        log::debug("Token: {}", token);
-    }, [](argon::AuthProgress progress) {
-        // This callback is called whenever the client moves to the next step of authentication
-
-        log::info("Auth progress: {}", argon::authProgressToString(progress));
-    });
-
-    if (!res) {
-        log::warn("Failed to start auth attempt: {}", res.unwrapErr());
+    void startAuth() {
+        m_listener.spawn(
+            argon::startAuth(),
+            [](Result<std::string> result) {
+                if (result.isOk()) {
+                    auto token = std::move(result).unwrap();
+                    log::info("Got token: {}", token);
+                } else {
+                    log::warn("Failed to authenticate: {}", result.unwrapErr());
+                }
+            }
+        );
     }
-}
+};
 ```
 
-If you prefer to use tasks over callbacks, task API is available since 1.2.0:
+If you want to authenticate without needing to be in a specific layer, you can use Geode's `async::spawn` instead:
 
 ```cpp
-#include <Geode/utils/coro.hpp>
-$on_mod(Loaded) {
-    $async(task = argon::startAuth()) {
-        auto res = co_await task;
-
-        if (res.isOk()) {
-            auto token = std::move(res).unwrap();
-            log::debug("Token: {}", token);
-        } else {
-            log::warn("Auth failed: {}", res.unwrapErr());
-        }
-    };
-}
+async::spawn(
+    argon::startAuth(),
+    [](Result<std::string> result) {
+        // handle result
+    }
+);
 ```
 
-**NOTE:** `argon::startAuth` is NOT thread-safe! This is why `auto res = co_await argon::startAuth();` here could be potentially problematic, but the example above is okay (the task is created in the main thread). If you do need to start authentication in another thread, please make sure to do the following:
-* Call `argon::initConfigLock` at least once **in the main thread**, for example in `$on_mod(Loaded)`
-* Call `argon::getGameAccountData()` **in the main thread** to get the user credentials and store them somewhere
-* Call `argon::startAuthWithAccount` in any thread you wish and pass the earlier obtained account data
+**NOTE:** Calling `argon::startAuth` is NOT thread-safe unless you supply account data yourself. When you call `startAuth()` with no arguments, Argon has to call `argon::getGameAccountData`, which can **only** happen in the main thread. In the rare case that you must create the auth future while inside an async task or another thread, do this:
 
-Since the version v1.3.0, to prevent crashes, argon is strict about this, and some functions will refuse to work when not used on the main thread. This is to prevent data races and crashes caused by unsafe usage.
+```cpp
+// On main thread, before authentication
+auto accountData = argon::getGameAccountData();
 
-If running into token validation issues, tokens can be cleared to attempt authentication again:
+// Simulate thread/task creation
+async::spawn([data = std::move(accountData)] -> arc::Future<> {
+    // This is fine now, startAuth is safe if we pass account data to it
+    argon::startAuth(data);
+});
+```
+
+If running into token validation issues, tokens should be cleared before attempting to authenticate again:
 
 ```cpp
 argon::clearToken();
@@ -96,8 +82,7 @@ argon::clearToken();
 If you want to use a custom server instead of the one provided by us, the URL can be set like so:
 
 ```cpp
-// this unwrap is safe as long as *no* auth requests are currently running
-argon::setServerUrl("http://localhost:4341").unwrap();
+argon::setServerUrl("http://localhost:4341");
 ```
 
 Few more functions are provided for managing tokens and for ensuring thread safety, you can find out about the rest of the functionality by reading the docstrings in `include/argon/argon.hpp` header.

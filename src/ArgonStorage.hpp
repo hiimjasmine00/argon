@@ -1,7 +1,6 @@
 #pragma once
-
-#include "singleton_base.hpp"
-#include "state.hpp"
+#include "util.hpp"
+#include <argon/argon.hpp>
 
 namespace argon {
 
@@ -10,7 +9,7 @@ class ArgonStorage : public SingletonBase<ArgonStorage> {
     ArgonStorage();
 
 public:
-    geode::Result<> storeAuthToken(PendingRequest* req, std::string_view authtoken);
+    geode::Result<> storeAuthToken(const AccountData& account, std::string_view serverIdent, std::string_view authtoken);
     std::optional<std::string> getAuthToken(const AccountData& account, std::string_view serverUrl);
     bool hasAuthToken(const AccountData& account, std::string_view serverUrl);
 
@@ -20,4 +19,4 @@ public:
 private:
 };
 
-} // namespace argon
+}

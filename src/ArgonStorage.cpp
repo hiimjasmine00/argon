@@ -1,6 +1,8 @@
-#include "storage.hpp"
+#include "ArgonStorage.hpp"
+#include "ArgonState.hpp"
 
 #include <Geode/loader/Dirs.hpp>
+#include <Geode/utils/file.hpp>
 #include <matjson.hpp>
 #include <asp/fs.hpp>
 
@@ -66,7 +68,7 @@ static matjson::Value loadOrCreateConfig() {
     return data;
 }
 
-Result<> ArgonStorage::storeAuthToken(PendingRequest* req, std::string_view authtoken) {
+Result<> ArgonStorage::storeAuthToken(const AccountData& account, std::string_view serverIdent, std::string_view authtoken) {
     auto _lock = ArgonState::get().acquireConfigLock();
 
     auto data = loadOrCreateConfig();
@@ -85,16 +87,16 @@ Result<> ArgonStorage::storeAuthToken(PendingRequest* req, std::string_view auth
         int userId = value["userid"].asInt().unwrapOrDefault();
 
         if (url != serverUrl
-            || accountId != req->account.accountId
-            || userId != req->account.userId
+            || accountId != account.accountId
+            || userId != account.userId
         ) {
             continue;
         }
 
         // if the same url and account ID, this leaves ident, username and the token fields to be arbitrary
         // and indeed, we will ignore their current values and just replace them
-        value["name"] = req->account.username;
-        value["ident"] = req->serverIdent;
+        value["name"] = account.username;
+        value["ident"] = serverIdent;
         value["token"] = authtoken;
 
         insertedToken = true;
@@ -104,10 +106,10 @@ Result<> ArgonStorage::storeAuthToken(PendingRequest* req, std::string_view auth
     if (!insertedToken) {
         arr.push_back(matjson::makeObject({
             {"url", serverUrl},
-            {"accid", req->account.accountId},
-            {"userid", req->account.userId},
-            {"name", req->account.username},
-            {"ident", req->serverIdent},
+            {"accid", account.accountId},
+            {"userid", account.userId},
+            {"name", account.username},
+            {"ident", serverIdent},
             {"token", authtoken},
         }));
     }
