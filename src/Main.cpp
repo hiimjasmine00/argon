@@ -217,7 +217,7 @@ $execute {
     ModStateEvent(ModEventType::Loaded, Mod::get()).listen([] {
         g_mainThreadId = std::this_thread::get_id();
         ArgonState::get().initConfigLock();
-    }, -10000);
+    }, -10000).leak();
 }
 
 }
