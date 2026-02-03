@@ -31,6 +31,11 @@ static void requireMainThread(std::string message) {
     if (isMainThread()) return;
 
     log::error("Argon - thread safety violation detected");
+    if (!g_mainThreadId) {
+        log::error("Load event was never ran - we don't know which thread is main.");
+        log::error("Did you attempt to start authentication before the mod was fully loaded?");
+    }
+
     geode::utils::terminate(
         fmt::format("{}\n\nPlease refer to the Argon README for information on how to use Argon in a thread-safe manner.", message)
     );
@@ -208,9 +213,11 @@ AuthFuture startAuth(AuthOptions options) {
     co_return Ok(std::move(verif.authtoken));
 }
 
-$on_mod(Loaded) {
-    g_mainThreadId = std::this_thread::get_id();
-    ArgonState::get().initConfigLock();
+$execute {
+    ModStateEvent(ModEventType::Loaded, Mod::get()).listen([] {
+        g_mainThreadId = std::this_thread::get_id();
+        ArgonState::get().initConfigLock();
+    }, -10000);
 }
 
 }
