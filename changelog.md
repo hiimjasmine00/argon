@@ -1,6 +1,7 @@
 # 1.4.1
 
 * Fix compilation on MSVC
+* Use lower priority for the mod load listeners
 
 # 1.4.0
 
