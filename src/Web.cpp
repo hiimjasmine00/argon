@@ -165,7 +165,7 @@ static Future<VerifyResult> verifyChallengeInner(const AccountData& account, uin
         .bodyJSON(payload)
         .post(argon.makeUrl(path));
     ARC_CO_UNWRAP_INTO(response, wrapResponse("challenge verify", std::move(response)));
-    auto data = ARC_CO_UNWRAP(extractData<matjson::Value>(response));
+    ARC_CO_UNWRAP_INTO(auto data, extractData<matjson::Value>(response));
 
     bool verified = data["verified"].asBool().unwrapOr(false);
     if (verified) {

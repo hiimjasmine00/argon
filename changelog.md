@@ -1,3 +1,12 @@
+# 1.4.1
+
+* Fix compilation on MSVC
+
+# 1.4.0
+
+* API slightly changed to be async-friendly
+* Internals rewritten for much cleaner code
+
 # 1.3.1
 
 * Add some helper functions to check if the user is signed into a GD account and if any auth tokens are already cached
