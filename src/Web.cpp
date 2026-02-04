@@ -1,6 +1,7 @@
 #include "ArgonState.hpp"
 #include "WebData.hpp"
 #include "Web.hpp"
+#include <Geode/binding/GJMoreGamesLayer.hpp>
 #include <Geode/loader/Mod.hpp>
 #include <asp/iter.hpp>
 
